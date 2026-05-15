@@ -12,5 +12,13 @@
 @layer base {
   body {
     @apply antialiased overflow-x-hidden;
+    background-color: #F5F2ED;
+  }
+  #root > div > main {
+    margin-top: 5rem;
+    background-color: #F5F2ED;
+  }
+  #root > div > main {
+    margin-top: 5rem;
   }
 }
