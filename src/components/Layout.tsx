@@ -9,8 +9,10 @@ import {
   X, 
   LogOut,
   ChevronRight,
-  TrendingUp,
-  LandPlot
+  LandPlot,
+  CheckCircle,
+  Building2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -21,18 +23,23 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const navItems = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Land Inventory', path: '/lands', icon: Map },
-  { name: 'Customers', path: '/customers', icon: Users },
-  { name: 'Financials', path: '/financials', icon: Wallet },
-];
-
 export default function Layout() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const navItems = [
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Inventory', path: '/lands', icon: Map },
+    { name: 'Customers', path: '/customers', icon: Users },
+    { name: 'Financials', path: '/financials', icon: Wallet },
+    { name: 'Migration', path: '/import', icon: FileSpreadsheet },
+  ];
+
+  if (user?.role === 'admin') {
+    navItems.push({ name: 'Approvals', path: '/approvals', icon: CheckCircle });
+  }
 
   const handleLogout = () => {
     logout();
@@ -45,7 +52,7 @@ export default function Layout() {
       <header className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-black/10 fixed top-0 w-full z-50">
         <div className="flex items-center gap-2">
           <LandPlot className="w-8 h-8 text-[#5A5A40]" />
-          <span className="text-xl font-bold tracking-tight">Rayban Properties</span>
+          <span className="text-xl font-bold tracking-tight">Raybann</span>
         </div>
         <button onClick={() => setSidebarOpen(true)} className="p-2">
           <Menu className="w-6 h-6" />
@@ -57,7 +64,7 @@ export default function Layout() {
         <div className="p-8 flex items-center gap-3">
           <LandPlot className="w-10 h-10 text-[#5A5A40]" />
           <div className="flex flex-col">
-            <span className="text-2xl font-bold tracking-tighter leading-none">Rayban</span>
+            <span className="text-2xl font-bold tracking-tighter leading-none">Raybann</span>
             <span className="text-[10px] uppercase tracking-widest opacity-50 font-semibold">Properties Kenya</span>
           </div>
         </div>

@@ -30,12 +30,21 @@ export const api = {
     list: () => apiRequest('/lands'),
     create: (data: any) => apiRequest('/lands', { method: 'POST', body: JSON.stringify(data) }),
   },
+  properties: {
+    list: () => apiRequest('/properties'),
+    create: (data: any) => apiRequest('/properties', { method: 'POST', body: JSON.stringify(data) }),
+  },
   customers: {
     list: () => apiRequest('/customers'),
     create: (data: any) => apiRequest('/customers', { method: 'POST', body: JSON.stringify(data) }),
   },
   sales: {
     create: (data: any) => apiRequest('/sales', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  approvals: {
+    list: () => apiRequest('/approvals/pending'),
+    approvePayment: (id: number) => apiRequest(`/approvals/payment/${id}`, { method: 'POST' }),
+    approveExpense: (id: number) => apiRequest(`/approvals/expense/${id}`, { method: 'POST' }),
   },
   dashboard: {
     stats: () => apiRequest('/dashboard/stats'),

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { 
   Users, 
@@ -9,27 +9,58 @@ import {
   History, 
   ExternalLink,
   ChevronRight,
-  LandPlot
+  LandPlot,
+  CreditCard,
+  Building2,
+  DollarSign
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function CustomerManagement() {
   const [customers, setCustomers] = useState<any[]>([]);
+  const [lands, setLands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaleOpen, setSaleOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+
+  const [saleForm, setSaleForm] = useState({
+    land_id: '',
+    total_price: 0,
+    paid_amount: 0,
+    method: 'mpesa',
+    transaction_ref: ''
+  });
 
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await api.customers.list();
-        setCustomers(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
   }, []);
+
+  async function load() {
+    try {
+      const [c, l] = await Promise.all([api.customers.list(), api.lands.list()]);
+      setCustomers(c);
+      setLands(l.filter((land: any) => land.status === 'available'));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSale(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await api.sales.create({
+        ...saleForm,
+        customer_id: selectedCustomer.id
+      });
+      setSaleOpen(false);
+      load();
+      alert('Sale recorded! Awaiting admin approval for payment.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error');
+    }
+  }
 
   return (
     <div className="space-y-8 pb-10">
@@ -62,7 +93,6 @@ export default function CustomerManagement() {
                 <th className="px-8 py-5 text-left text-[10px] font-bold uppercase tracking-widest text-black/40">Client Info</th>
                 <th className="px-8 py-5 text-left text-[10px] font-bold uppercase tracking-widest text-black/40">Contact</th>
                 <th className="px-8 py-5 text-left text-[10px] font-bold uppercase tracking-widest text-black/40">ID / Passport</th>
-                <th className="px-8 py-5 text-left text-[10px] font-bold uppercase tracking-widest text-black/40">Status</th>
                 <th className="px-8 py-5 text-right text-[10px] font-bold uppercase tracking-widest text-black/40">Actions</th>
               </tr>
             </thead>
@@ -96,15 +126,13 @@ export default function CustomerManagement() {
                     <td className="px-8 py-6">
                       <span className="px-3 py-1 bg-black/5 rounded-lg text-xs font-mono font-bold">{customer.id_number}</span>
                     </td>
-                    <td className="px-8 py-6">
-                      <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase w-fit tracking-wider">
-                        Active Client
-                      </div>
-                    </td>
                     <td className="px-8 py-6 text-right">
-                      <button className="p-3 bg-[#1A1A1A] text-white rounded-xl hover:scale-110 active:scale-95 transition-all shadow-lg shadow-black/10">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
+                       <button 
+                         onClick={() => { setSelectedCustomer(customer); setSaleOpen(true); }}
+                         className="px-4 py-2 bg-black text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#5A5A40] transition-colors"
+                       >
+                         Record Sale
+                       </button>
                     </td>
                   </tr>
                 ))
@@ -113,6 +141,85 @@ export default function CustomerManagement() {
           </table>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isSaleOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSaleOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl">
+              <header className="mb-8">
+                <p className="text-[10px] uppercase font-bold text-[#5A5A40] tracking-widest mb-1">New Sale for</p>
+                <h2 className="text-3xl font-bold tracking-tighter">{selectedCustomer?.name}</h2>
+              </header>
+              
+              <form onSubmit={handleSale} className="space-y-6">
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-black/40">Select Plot</label>
+                    <select 
+                      required
+                      value={saleForm.land_id}
+                      onChange={e => {
+                        const land = lands.find(l => l.id === parseInt(e.target.value));
+                        setSaleForm({...saleForm, land_id: e.target.value, total_price: land?.total_cost || 0});
+                      }}
+                      className="w-full px-5 py-4 bg-black/5 border-none rounded-2xl text-sm font-bold outline-none"
+                    >
+                      <option value="">Select an available plot</option>
+                      {lands.map(l => <option key={l.id} value={l.id}>{l.plot_number} - {l.location}</option>)}
+                    </select>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-black/40">Sale Price (KES)</label>
+                       <div className="px-5 py-4 bg-black/5 rounded-2xl text-sm font-bold text-black/40">
+                          {saleForm.total_price.toLocaleString()}
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-black/40">Deposit Amount</label>
+                       <input 
+                         type="number"
+                         value={saleForm.paid_amount}
+                         onChange={e => setSaleForm({...saleForm, paid_amount: parseInt(e.target.value)})}
+                         className="w-full px-5 py-4 bg-[#F5F2ED] border-none rounded-2xl text-sm font-bold focus:ring-2 ring-emerald-500/20 outline-none"
+                       />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-black/40">Payment Method</label>
+                      <select 
+                        value={saleForm.method}
+                        onChange={e => setSaleForm({...saleForm, method: e.target.value})}
+                        className="w-full px-5 py-4 bg-black/5 border-none rounded-2xl text-sm font-bold outline-none"
+                      >
+                        <option value="mpesa">M-Pesa</option>
+                        <option value="bank">Bank Transfer</option>
+                        <option value="cash">Cash</option>
+                      </select>
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-black/40">Transaction Ref</label>
+                      <input 
+                        value={saleForm.transaction_ref}
+                        onChange={e => setSaleForm({...saleForm, transaction_ref: e.target.value})}
+                        className="w-full px-5 py-4 bg-black/5 border-none rounded-2xl text-sm font-bold outline-none"
+                        placeholder="e.g. QWE123RTY"
+                      />
+                   </div>
+                 </div>
+
+                 <div className="flex gap-4 pt-4">
+                    <button type="button" onClick={() => setSaleOpen(false)} className="flex-1 py-5 bg-black/5 text-black/60 rounded-2xl font-bold text-sm">Close</button>
+                    <button type="submit" className="flex-1 py-5 bg-[#5A5A40] text-white rounded-2xl font-bold text-sm shadow-xl shadow-[#5A5A40]/20">Confirm Sale</button>
+                 </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

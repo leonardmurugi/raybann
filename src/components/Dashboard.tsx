@@ -7,7 +7,9 @@ import {
   DollarSign, 
   AlertCircle,
   ArrowUpRight,
-  LandPlot
+  LandPlot,
+  Building2,
+  ChevronRight
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { 
@@ -52,33 +54,39 @@ export default function Dashboard() {
 
   const cards = [
     { 
-      title: 'Total Revenue', 
-      value: `KES ${stats?.revenue?.toLocaleString() || '0'}`, 
+      title: 'Gross Collection', 
+      value: `KES ${stats?.received?.toLocaleString() || '0'}`, 
       icon: TrendingUp, 
       color: 'bg-emerald-500', 
-      desc: 'Total land sales recorded' 
+      desc: 'All-time approved payments' 
     },
     { 
       title: 'Customer Debt', 
       value: `KES ${stats?.landDebt?.toLocaleString() || '0'}`, 
       icon: AlertCircle, 
       color: 'bg-rose-500', 
-      desc: 'Outstanding balances' 
+      desc: 'Total balances from plot sales' 
     },
     { 
-      title: 'Land Units', 
-      value: stats?.landCount?.toString() || '0', 
-      icon: LandPlot, 
+      title: 'Portfolio Size', 
+      value: stats?.propertyCount?.toString() || '0', 
+      icon: Building2, 
       color: 'bg-amber-500', 
-      desc: 'Total plots in inventory' 
+      desc: 'Main properties acquired' 
     },
     { 
-      title: 'Active Sales', 
-      value: stats?.salesCount?.toString() || '0', 
-      icon: ArrowUpRight, 
+      title: 'Plot Inventory', 
+      value: `${stats?.landCount || 0}`, 
+      icon: LandPlot, 
       color: 'bg-blue-500', 
-      desc: 'Completed transactions' 
+      desc: 'Total subdivided units' 
     },
+  ];
+
+  const secondaryStats = [
+    { label: 'Unpaid Land Balances', value: `KES ${stats?.propertyDebt?.toLocaleString() || '0'}`, desc: 'Owed to original sellers' },
+    { label: 'Operating Expenses', value: `KES ${stats?.expenses?.toLocaleString() || '0'}`, desc: 'Approved company costs' },
+    { label: 'Available Plots', value: stats?.landCount || 0, desc: 'Ready for sale' },
   ];
 
   if (loading) return (
@@ -95,7 +103,7 @@ export default function Dashboard() {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold tracking-tighter">Overview</h1>
-          <p className="text-black/50 text-sm font-medium">Rayban Properties Management System — Nairobi HQ</p>
+          <p className="text-black/50 text-sm font-medium">Raybann Properties Management System — Nairobi HQ</p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-white border border-black/10 rounded-2xl shadow-sm">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -124,6 +132,15 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        {secondaryStats.map((stat) => (
+          <div key={stat.label} className="bg-white/40 backdrop-blur-sm border border-black/5 px-6 py-4 rounded-2xl flex flex-col min-w-[200px]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-black/30">{stat.label}</span>
+            <span className="text-lg font-bold tracking-tight">{stat.value}</span>
+          </div>
         ))}
       </div>
 
@@ -216,5 +233,3 @@ export default function Dashboard() {
 function cn(...inputs: any[]) {
   return inputs.filter(Boolean).join(' ');
 }
-
-import { ChevronRight } from 'lucide-react';

@@ -9,19 +9,46 @@ import {
   FileText,
   Clock,
   PieChart as PieChartIcon,
-  Plus
+  Plus,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Financials() {
   const [activeTab, setActiveTab] = useState<'transactions' | 'expenses'>('transactions');
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [activeTab]);
+
+  async function loadTransactions() {
+    setLoading(true);
+    try {
+      // For simplicity, using same endpoint but we'll fetch stats for summary
+      const stats = await api.dashboard.stats();
+      // Fetching all payments/expenses would be better but let's mock it for the log
+      // In a real app we'd have /api/transactions
+      setData([
+        { id: 1, type: 'received', amount: 1500000, category: 'land_sale', method: 'mpesa', status: 'official', date: new Date().toISOString() },
+        { id: 2, type: 'made', amount: 45000, category: 'office_rent', method: 'bank', status: 'official', date: new Date().toISOString() },
+        { id: 3, type: 'received', amount: 500000, category: 'land_sale', method: 'bank', status: 'pending', date: new Date().toISOString() },
+      ]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-8 pb-10">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-bold tracking-tighter">Finance</h1>
-          <p className="text-black/50 text-sm font-medium">Ledger, receipts, and petty cash</p>
+          <p className="text-black/50 text-sm font-medium">Approved records and cash flow tracking</p>
         </div>
         <div className="flex bg-white p-1.5 rounded-2xl border border-black/10 shadow-sm">
           <button 
@@ -49,40 +76,46 @@ export default function Financials() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-[2.5rem] border border-black/5 overflow-hidden shadow-sm">
              <div className="p-8 border-b border-black/5 flex items-center justify-between">
-                <h3 className="font-bold tracking-tight uppercase text-[10px] text-black/40 letter tracking-widest">Recent Activity</h3>
+                <h3 className="font-bold tracking-tight uppercase text-[10px] text-black/40 letter tracking-widest">Global Log</h3>
                 <button className="text-xs font-bold text-[#5A5A40] flex items-center gap-2 hover:underline">
                   <Filter className="w-3 h-3" /> Filter Log
                 </button>
              </div>
              
              <div className="divide-y divide-black/5">
-                {[1,2,3,4,5].map((item) => (
-                  <div key={item} className="p-6 flex items-center justify-between group hover:bg-black/[0.01] transition-colors">
+                {data.map((item) => (
+                  <div key={item.id} className="p-6 flex items-center justify-between group hover:bg-black/[0.01] transition-colors">
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-12 h-12 rounded-2xl flex items-center justify-center",
-                        item % 2 === 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                        item.type === 'received' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
                       )}>
-                        {item % 2 === 0 ? <ArrowDownLeft className="w-6 h-6" /> : <ArrowUpRight className="w-6 h-6" />}
+                        {item.type === 'received' ? <ArrowDownLeft className="w-6 h-6" /> : <ArrowUpRight className="w-6 h-6" />}
                       </div>
                       <div>
-                        <p className="font-bold text-sm">{item % 2 === 0 ? 'Plot Installment Receipt' : 'Office Petty Cash'}</p>
+                        <p className="font-bold text-sm tracking-tight capitalize">{item.category.replace('_', ' ')}</p>
                         <div className="flex items-center gap-3 text-[10px] font-bold text-black/30 uppercase tracking-widest mt-1">
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> 2h ago</span>
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Just now</span>
                           <span className="w-1 h-1 rounded-full bg-black/10" />
-                          <span>Ref: #TRX-99{item}</span>
+                          <span className={cn(
+                            "flex items-center gap-1",
+                            item.status === 'official' ? "text-emerald-500" : "text-amber-500"
+                          )}>
+                             {item.status === 'official' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                             {item.status}
+                          </span>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className={cn(
                         "font-bold text-sm",
-                        item % 2 === 0 ? "text-emerald-600" : "text-rose-600"
+                        item.type === 'received' ? "text-emerald-600" : "text-rose-600"
                       )}>
-                        {item % 2 === 0 ? '+' : '-'} KES {(item * 25000).toLocaleString()}
+                        {item.type === 'received' ? '+' : '-'} KES {item.amount.toLocaleString()}
                       </p>
-                      <button className="text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-40 transition-opacity flex items-center gap-1 justify-end mt-1 active:opacity-100 underline decoration-2">
-                        <FileText className="w-3 h-3" /> Receipt
+                      <button className="text-[10px] font-bold uppercase tracking-widest text-[#5A5A40] opacity-40 group-hover:opacity-100 transition-opacity flex items-center gap-1 justify-end mt-1 active:opacity-100 underline decoration-2">
+                        <FileText className="w-3 h-3" /> Download Receipt
                       </button>
                     </div>
                   </div>
