@@ -87,23 +87,23 @@ export default function LandManagement() {
   };
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-10 font-sans pt-4">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-bold tracking-tighter">Inventory</h1>
-          <p className="text-black/50 text-sm font-medium">Lifecycle management of property portfolio</p>
+          <h1 className="text-3xl font-display font-medium tracking-tight text-slate-900">Inventory</h1>
+          <p className="text-slate-500 text-sm font-medium">Property lifecycle and subdivision control</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/import')}
-            className="flex items-center gap-2 px-4 py-3 bg-white border border-black/10 rounded-2xl font-bold text-xs cursor-pointer hover:bg-black/5 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-xs text-slate-600 hover:bg-slate-50 transition-all"
           >
             <Upload className="w-4 h-4" />
             Bulk Import
           </button>
           <button 
             onClick={() => tab === 'properties' ? setAddPropOpen(true) : setAddPlotOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-[#1A1A1A] text-white rounded-2xl font-bold text-sm shadow-xl shadow-black/10 hover:scale-105 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-semibold text-xs transition-all hover:bg-slate-800 shadow-lg shadow-slate-100"
           >
             <Plus className="w-4 h-4" />
             {tab === 'properties' ? 'New Land' : 'New Plot'}

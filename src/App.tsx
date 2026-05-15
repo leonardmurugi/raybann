@@ -8,6 +8,7 @@ import CustomerManagement from './components/CustomerManagement';
 import Financials from './components/Financials';
 import Approvals from './components/Approvals';
 import DataMigration from './components/DataMigration';
+import Reports from './components/Reports';
 import Login from './components/Login';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ function AppContent() {
         <Route path="financials" element={<Financials />} />
         <Route path="approvals" element={<Approvals />} />
         <Route path="import" element={<DataMigration />} />
+        <Route path="reports" element={<Reports />} />
       </Route>
     </Routes>
   );

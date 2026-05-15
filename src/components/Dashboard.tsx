@@ -99,37 +99,36 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-10 pb-10 font-sans pt-4">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold tracking-tighter">Overview</h1>
-          <p className="text-black/50 text-sm font-medium">Raybann Properties Management System — Nairobi HQ</p>
+          <h1 className="text-3xl font-display font-medium tracking-tight text-slate-900">Overview</h1>
+          <p className="text-slate-500 text-sm font-medium">Raybann Properties — Nairobi HQ</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white border border-black/10 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-sm">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold uppercase tracking-wider">Live System Status</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">System Secure</span>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card, idx) => (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
+            transition={{ delay: idx * 0.05 }}
             key={card.title}
-            className="group bg-white p-6 rounded-[2rem] border border-black/5 shadow-sm hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+            className="group bg-white p-6 rounded-2xl border border-slate-100 hover:shadow-xl transition-all duration-300"
           >
-            <div className={cn("absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-500", card.color)} />
-            <div className="relative z-10 space-y-4">
-              <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg", card.color)}>
-                <card.icon className="w-6 h-6 text-white" />
+            <div className="flex items-center justify-between mb-6">
+              <div className={cn("p-2.5 rounded-xl text-white shadow-sm", card.color)}>
+                <card.icon className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="text-black/40 font-bold text-xs uppercase tracking-widest">{card.title}</h3>
-                <p className="text-2xl font-bold tracking-tighter mt-1">{card.value}</p>
-                <p className="text-[10px] text-black/50 font-medium mt-2">{card.desc}</p>
-              </div>
+              <ChevronRight className="w-4 h-4 text-slate-200 opacity-0 group-hover:opacity-100 transition-all" />
+            </div>
+            <div>
+              <p className="text-2xl font-display font-semibold text-slate-900">{card.value}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{card.title}</p>
             </div>
           </motion.div>
         ))}
@@ -137,18 +136,18 @@ export default function Dashboard() {
 
       <div className="flex flex-wrap gap-4">
         {secondaryStats.map((stat) => (
-          <div key={stat.label} className="bg-white/40 backdrop-blur-sm border border-black/5 px-6 py-4 rounded-2xl flex flex-col min-w-[200px]">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-black/30">{stat.label}</span>
-            <span className="text-lg font-bold tracking-tight">{stat.value}</span>
+          <div key={stat.label} className="bg-white/60 border border-slate-100 px-6 py-4 rounded-xl flex flex-col min-w-[200px]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{stat.label}</span>
+            <span className="text-lg font-display font-medium text-slate-800">{stat.value}</span>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-bold tracking-tight">Revenue Analytics</h3>
-            <select className="bg-black/5 border-none rounded-xl text-xs font-bold px-4 py-2 outline-none">
+        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-10">
+            <h3 className="text-sm font-semibold text-slate-900 border-l-2 border-slate-900 pl-4">Revenue Analytics</h3>
+            <select className="bg-slate-50 border-none rounded-lg text-[10px] font-bold uppercase tracking-widest px-4 py-2 outline-none text-slate-500">
               <option>Last 6 Months</option>
               <option>Last Year</option>
             </select>

@@ -12,7 +12,9 @@ import {
   LandPlot,
   CheckCircle,
   Building2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  PieChart,
+  Receipt
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,6 +36,7 @@ export default function Layout() {
     { name: 'Inventory', path: '/lands', icon: Map },
     { name: 'Customers', path: '/customers', icon: Users },
     { name: 'Financials', path: '/financials', icon: Wallet },
+    { name: 'Reports', path: '/reports', icon: PieChart },
     { name: 'Migration', path: '/import', icon: FileSpreadsheet },
   ];
 
@@ -47,12 +50,12 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F2ED] text-[#1A1A1A] font-sans">
+    <div className="min-h-screen bg-[#F9F9F7] text-slate-800 font-sans">
       {/* Mobile Header */}
-      <header className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-black/10 fixed top-0 w-full z-50">
+      <header className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200 fixed top-0 w-full z-50">
         <div className="flex items-center gap-2">
-          <LandPlot className="w-8 h-8 text-[#5A5A40]" />
-          <span className="text-xl font-bold tracking-tight">Raybann</span>
+          <LandPlot className="w-8 h-8 text-slate-900" />
+          <span className="text-xl font-display font-medium tracking-tight">Raybann</span>
         </div>
         <button onClick={() => setSidebarOpen(true)} className="p-2">
           <Menu className="w-6 h-6" />
@@ -60,12 +63,12 @@ export default function Layout() {
       </header>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-black/10 h-screen fixed left-0 top-0">
+      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 h-screen fixed left-0 top-0">
         <div className="p-8 flex items-center gap-3">
-          <LandPlot className="w-10 h-10 text-[#5A5A40]" />
+          <LandPlot className="w-9 h-9 text-slate-900" />
           <div className="flex flex-col">
-            <span className="text-2xl font-bold tracking-tighter leading-none">Raybann</span>
-            <span className="text-[10px] uppercase tracking-widest opacity-50 font-semibold">Properties Kenya</span>
+            <span className="text-2xl font-display font-medium tracking-tight leading-none text-slate-900">Raybann</span>
+            <span className="text-[10px] uppercase tracking-widest opacity-50 font-bold text-slate-500">Properties Kenya</span>
           </div>
         </div>
 
@@ -78,10 +81,10 @@ export default function Layout() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group text-sm font-medium",
+                    "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-semibold",
                     isActive 
-                      ? "bg-[#5A5A40] text-white shadow-lg shadow-[#5A5A40]/20" 
-                      : "text-black/60 hover:bg-black/5 hover:text-black"
+                      ? "bg-slate-900 text-white shadow-xl shadow-slate-200" 
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                   )}
                 >
                   <item.icon className={cn("w-5 h-5", isActive ? "text-white" : "opacity-70 group-hover:opacity-100")} />
@@ -177,8 +180,10 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="lg:ml-64 pt-20 lg:pt-0 p-4 lg:p-10 transition-all duration-300">
-        <Outlet />
+      <main className="lg:ml-64 pt-24 lg:pt-0 p-4 lg:p-12 transition-all duration-300">
+        <div className="max-w-6xl mx-auto space-y-12">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
