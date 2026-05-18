@@ -43,6 +43,7 @@
     "@types/pg": "^8.20.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "netlify-cli": "^26.0.2",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
