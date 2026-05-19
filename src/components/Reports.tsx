@@ -45,20 +45,20 @@ export default function Reports() {
     <div className="space-y-10 font-sans max-w-6xl">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-medium tracking-tight text-slate-900">Business Reports</h1>
+          <h1 className="text-3xl font-display font-medium tracking-tight text-brand-blue">Business Reports</h1>
           <p className="text-slate-500 text-sm mt-1">Consolidated operational and financial performance</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-brand-blue hover:bg-slate-50 transition-colors">
           <Download className="w-4 h-4" /> Export All
         </button>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Plot Sales', value: stats?.salesCount || 0, icon: LandPlot, trend: '+12%', color: 'text-blue-600' },
+          { label: 'Plot Sales', value: stats?.salesCount || 0, icon: LandPlot, trend: '+12%', color: 'text-brand-blue' },
           { label: 'Total Collections', value: `K ${((stats?.received || 0) / 1000).toFixed(0)}k`, icon: TrendingUp, trend: '+8%', color: 'text-emerald-600' },
-          { label: 'Pending Debts', value: `K ${((stats?.propertyDebt || 0) / 1000).toFixed(0)}k`, icon: DollarSign, trend: '-2%', color: 'text-rose-600' },
-          { label: 'New Leads', value: stats?.customerCount || 0, icon: Users, trend: '+5%', color: 'text-amber-600' },
+          { label: 'Pending Debts', value: `K ${((stats?.propertyDebt || 0) / 1000).toFixed(0)}k`, icon: DollarSign, trend: '-2%', color: 'text-brand-orange' },
+          { label: 'New Leads', value: stats?.customerCount || 0, icon: Users, trend: '+5%', color: 'text-brand-blue' },
         ].map((item, i) => (
           <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -76,10 +76,10 @@ export default function Reports() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">Collection Trends</h3>
+            <h3 className="text-sm font-display font-semibold text-brand-blue uppercase tracking-wider">Collection Trends</h3>
             <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-               <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500" /> Sales</span>
-               <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Payments</span>
+               <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-brand-blue" /> Sales</span>
+               <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-brand-orange" /> Payments</span>
             </div>
           </div>
           <div className="h-[300px] w-full">
@@ -89,31 +89,31 @@ export default function Reports() {
                 <XAxis dataKey="name" fontSize={10} fontWeight={600} stroke="#94A3B8" />
                 <YAxis fontSize={10} fontWeight={600} stroke="#94A3B8" />
                 <Tooltip cursor={{fill: '#F8FAFC'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                <Bar dataKey="sales" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="collections" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="sales" fill="#1B315F" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="collections" fill="#F4811F" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-          <h3 className="text-sm font-semibold text-slate-900">Performance Summary</h3>
+          <h3 className="text-sm font-display font-semibold text-brand-blue uppercase tracking-wider">Performance Summary</h3>
           <div className="space-y-4">
             {[
               { label: 'Collection Rate', value: '72%', sub: 'Target: 85%' },
               { label: 'Plot Inventory', value: '45/80', sub: 'Sold: 35' },
               { label: 'Avg Sale Cycle', value: '42d', sub: 'Target: 30d' },
             ].map((metric, i) => (
-              <div key={i} className="p-4 bg-slate-50 rounded-xl">
+              <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                  <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{metric.label}</span>
-                    <span className="text-sm font-bold text-slate-900">{metric.value}</span>
+                    <span className="text-sm font-bold text-brand-blue">{metric.value}</span>
                  </div>
                  <p className="text-[10px] text-slate-400">{metric.sub}</p>
               </div>
             ))}
           </div>
-          <button className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors">
+          <button className="w-full py-4 bg-brand-blue text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-orange transition-all shadow-lg shadow-brand-blue/10">
             Generate Detailed P&L
           </button>
         </div>

@@ -79,7 +79,7 @@ export default function Financials() {
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
                 "px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all",
-                activeTab === tab.id ? "bg-slate-900 text-white shadow-sm" : "text-slate-400 hover:text-slate-600"
+                activeTab === tab.id ? "bg-brand-blue text-white shadow-sm" : "text-slate-400 hover:text-brand-blue"
               )}
             >
               <tab.icon className="w-4 h-4" />
@@ -93,9 +93,9 @@ export default function Financials() {
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Transaction Log</h3>
+                <h3 className="text-xs font-display font-bold uppercase tracking-widest text-brand-blue">Transaction Log</h3>
                 <div className="flex items-center gap-2">
-                  <button className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 hover:text-slate-900">
+                  <button className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 hover:text-brand-blue">
                     <Filter className="w-3 h-3" /> Filter
                   </button>
                 </div>
@@ -113,8 +113,8 @@ export default function Financials() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                           <p className="font-semibold text-[13px] text-slate-900 capitalize">{item.category.replace('_', ' ')}</p>
-                           {item.property && <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded italic">{item.property}</span>}
+                           <p className="font-display font-semibold text-[13px] text-brand-blue capitalize">{item.category.replace('_', ' ')}</p>
+                           {item.property && <span className="text-[10px] font-bold text-brand-orange bg-brand-orange/5 px-2 py-0.5 rounded italic">{item.property}</span>}
                         </div>
                         <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {item.date}</span>
@@ -125,14 +125,14 @@ export default function Financials() {
                     </div>
                     <div className="text-right">
                       <p className={cn(
-                        "font-semibold text-[13px]",
+                        "font-display font-semibold text-[13px]",
                         item.type === 'received' ? "text-emerald-600" : "text-rose-600"
                       )}>
                         {item.type === 'received' ? '+' : '-'} KES {item.amount.toLocaleString()}
                       </p>
                       <button 
                         onClick={() => setSelectedReceipt(item)}
-                        className="text-[10px] font-bold uppercase tracking-widest text-slate-400 opacity-60 hover:opacity-100 flex items-center gap-1 justify-end mt-0.5 hover:underline"
+                        className="text-[10px] font-bold uppercase tracking-widest text-slate-400 opacity-60 hover:opacity-100 hover:text-brand-blue flex items-center gap-1 justify-end mt-0.5 hover:underline"
                       >
                         <FileText className="w-3 h-3" /> View Receipt
                       </button>
@@ -144,7 +144,8 @@ export default function Financials() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-slate-900 p-8 rounded-3xl text-white space-y-6 relative overflow-hidden">
+          <div className="bg-brand-blue p-8 rounded-3xl text-white space-y-6 relative overflow-hidden">
+            <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-brand-orange blur-3xl opacity-20" />
             <Wallet className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40">Cash Balance</p>
@@ -153,7 +154,7 @@ export default function Financials() {
             <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
                <TrendingUp className="w-4 h-4" /> +15.2% from last month
             </div>
-            <button className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all">
+            <button className="w-full py-4 bg-brand-orange text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-brand-orange/20">
                Withdraw Funds
             </button>
           </div>
@@ -204,17 +205,17 @@ export default function Financials() {
                   <div className="flex justify-between items-start">
                      <div>
                         <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-1">Receipt ID</p>
-                        <p className="text-xs font-black text-slate-800">#{selectedReceipt.ref}</p>
+                        <p className="text-xs font-black text-brand-blue">#{selectedReceipt.ref}</p>
                      </div>
                      <div className="text-right">
                         <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-1">Date</p>
-                        <p className="text-xs font-bold text-slate-800">{selectedReceipt.date}</p>
+                        <p className="text-xs font-bold text-brand-blue">{selectedReceipt.date}</p>
                      </div>
                   </div>
 
-                  <div className="p-6 bg-slate-50 rounded-2xl flex flex-col items-center gap-2">
+                  <div className="p-6 bg-slate-50 rounded-2xl flex flex-col items-center gap-2 border border-slate-100">
                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Amount Received</p>
-                     <p className="text-3xl font-display font-semibold text-slate-900 tracking-tight">KES {selectedReceipt.amount.toLocaleString()}</p>
+                     <p className="text-3xl font-display font-semibold text-brand-blue tracking-tight">KES {selectedReceipt.amount.toLocaleString()}</p>
                   </div>
 
                   <div className="space-y-3 pb-8 border-b border-dashed border-slate-100">
@@ -248,10 +249,10 @@ export default function Financials() {
                </div>
 
                <div className="w-full flex gap-4 mt-10 print:hidden">
-                  <button onClick={handlePrint} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-slate-100 hover:bg-slate-800 transition-all">
+                  <button onClick={handlePrint} className="flex-1 py-4 bg-brand-blue text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/10 hover:bg-brand-orange transition-all">
                      <Printer className="w-4 h-4" /> Print Document
                   </button>
-                  <button onClick={() => setSelectedReceipt(null)} className="px-6 py-4 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50">
+                  <button onClick={() => setSelectedReceipt(null)} className="px-6 py-4 border border-slate-200 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:bg-slate-50">
                      Done
                   </button>
                </div>

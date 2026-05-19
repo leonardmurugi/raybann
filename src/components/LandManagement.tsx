@@ -105,7 +105,7 @@ export default function LandManagement() {
           </button>
           <button 
             onClick={() => tab === 'properties' ? setAddPropOpen(true) : setAddPlotOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-semibold text-xs transition-all hover:bg-slate-800 shadow-lg shadow-slate-100"
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all hover:scale-105 shadow-lg shadow-brand-orange/20"
           >
             <Plus className="w-4 h-4" />
             {tab === 'properties' ? 'New Land' : 'New Plot'}
@@ -114,12 +114,12 @@ export default function LandManagement() {
       </header>
 
       {/* Modern Tabs */}
-      <div className="flex p-1 bg-black/5 rounded-2xl w-fit">
+      <div className="flex p-1 bg-slate-100 rounded-2xl w-fit">
          <button 
            onClick={() => setTab('properties')}
            className={cn(
              "px-6 py-2.5 rounded-xl text-xs font-bold transition-all",
-             tab === 'properties' ? "bg-white shadow-sm text-black" : "text-black/40 hover:text-black"
+             tab === 'properties' ? "bg-white shadow-sm text-brand-blue" : "text-slate-400 hover:text-brand-blue"
            )}
          >
            Main Properties
@@ -128,7 +128,7 @@ export default function LandManagement() {
            onClick={() => setTab('plots')}
            className={cn(
              "px-6 py-2.5 rounded-xl text-xs font-bold transition-all",
-             tab === 'plots' ? "bg-white shadow-sm text-black" : "text-black/40 hover:text-black"
+             tab === 'plots' ? "bg-white shadow-sm text-brand-blue" : "text-slate-400 hover:text-brand-blue"
            )}
          >
            Subdivisions (Plots)
@@ -147,12 +147,12 @@ export default function LandManagement() {
             >
               <div className="flex items-start justify-between">
                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-3xl bg-[#F5F2ED] flex items-center justify-center text-[#5A5A40]">
+                    <div className="w-16 h-16 rounded-3xl bg-brand-blue/5 flex items-center justify-center text-brand-blue">
                        <Building2 className="w-8 h-8" />
                     </div>
                     <div>
-                       <h3 className="text-2xl font-bold tracking-tight">{prop.name}</h3>
-                       <div className="flex items-center gap-2 text-black/40">
+                       <h3 className="text-2xl font-display font-bold tracking-tight text-brand-blue">{prop.name}</h3>
+                       <div className="flex items-center gap-2 text-slate-400">
                          <MapPin className="w-3 h-3" />
                          <span className="text-[10px] uppercase font-bold tracking-widest">{prop.location}</span>
                        </div>
@@ -160,32 +160,32 @@ export default function LandManagement() {
                  </div>
                  <div className={cn(
                    "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest",
-                   prop.ownership_status === 'fully_owned' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                   prop.ownership_status === 'fully_owned' ? "bg-emerald-50 text-emerald-600" : "bg-brand-orange/10 text-brand-orange"
                  )}>
                    {prop.ownership_status.replace('_', ' ')}
                  </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                 <div className="p-4 bg-black/[0.02] rounded-2xl space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-black/30 tracking-widest">Total Size</p>
-                    <p className="font-bold text-sm">{prop.total_size}</p>
+                 <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
+                    <p className="text-[9px] uppercase font-bold text-slate-300 tracking-widest">Total Size</p>
+                    <p className="font-bold text-sm text-brand-blue">{prop.total_size}</p>
                  </div>
-                 <div className="p-4 bg-black/[0.02] rounded-2xl space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-black/30 tracking-widest">Buy Price</p>
-                    <p className="font-bold text-sm text-[#5A5A40]">K{Math.round(prop.buying_price/1000)}k</p>
+                 <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
+                    <p className="text-[9px] uppercase font-bold text-slate-300 tracking-widest">Buy Price</p>
+                    <p className="font-bold text-sm text-brand-blue">K{Math.round(prop.buying_price/1000)}k</p>
                  </div>
-                 <div className="p-4 bg-black/[0.02] rounded-2xl space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-black/30 tracking-widest">Outstanding</p>
-                    <p className="font-bold text-sm text-rose-600">K{Math.round((prop.buying_price - prop.amount_paid_to_seller)/1000)}k</p>
+                 <div className="p-4 bg-slate-50 rounded-2xl space-y-1 border-b-2 border-brand-orange">
+                    <p className="text-[9px] uppercase font-bold text-slate-300 tracking-widest">Outstanding</p>
+                    <p className="font-bold text-sm text-brand-orange">K{Math.round((prop.buying_price - prop.amount_paid_to_seller)/1000)}k</p>
                  </div>
               </div>
 
               <div className="flex items-center gap-4 pt-4 mt-auto">
-                 <button className="flex-1 py-4 bg-black text-white rounded-2xl font-bold text-xs hover:bg-[#5A5A40] transition-colors">
+                 <button className="flex-1 py-4 bg-brand-blue text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-brand-orange transition-all shadow-lg shadow-brand-blue/10">
                     Manage Costs
                  </button>
-                 <button className="px-6 py-4 border border-black/10 rounded-2xl font-bold text-xs hover:bg-black/5">
+                 <button className="px-6 py-4 border border-slate-200 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:bg-slate-50">
                     History
                  </button>
               </div>
@@ -200,42 +200,42 @@ export default function LandManagement() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               key={land.id}
-              className="bg-white rounded-[2.5rem] border border-black/5 p-8 flex flex-col gap-6 shadow-sm hover:shadow-xl transition-all"
+              className="bg-white rounded-[2.5rem] border border-slate-100 p-8 flex flex-col gap-6 shadow-sm hover:shadow-xl transition-all"
             >
               <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-2xl bg-[#F5F2ED] flex items-center justify-center text-[#5A5A40]">
+                <div className="w-12 h-12 rounded-2xl bg-brand-blue/5 flex items-center justify-center text-brand-blue">
                   <LandPlot className="w-6 h-6" />
                 </div>
                 <div className={cn(
                   "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                  land.status === 'sold' ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
+                  land.status === 'sold' ? "bg-rose-50 text-rose-500" : "bg-emerald-50 text-emerald-500"
                 )}>
                   {land.status}
                 </div>
               </div>
 
               <div>
-                <p className="text-[10px] uppercase font-bold text-black/30 tracking-widest mb-1">{land.parent_name || 'Individual Plot'}</p>
-                <h3 className="text-xl font-bold tracking-tight">{land.plot_number}</h3>
+                <p className="text-[10px] uppercase font-display font-bold text-slate-300 tracking-widest mb-1">{land.parent_name || 'Individual Plot'}</p>
+                <h3 className="text-xl font-display font-bold tracking-tight text-brand-blue">{land.plot_number}</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-black/20 tracking-tighter">Size</p>
-                    <p className="text-xs font-bold">{land.size}</p>
+                    <p className="text-[9px] uppercase font-bold text-slate-300 tracking-tighter">Size</p>
+                    <p className="text-xs font-bold text-brand-blue">{land.size}</p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-black/20 tracking-tighter">Selling Price</p>
-                    <p className="text-xs font-bold text-[#5A5A40]">KES {parseInt(land.total_cost).toLocaleString()}</p>
+                    <p className="text-[9px] uppercase font-bold text-slate-300 tracking-tighter">Selling Price</p>
+                    <p className="text-xs font-bold text-brand-orange">KES {parseInt(land.total_cost).toLocaleString()}</p>
                  </div>
               </div>
 
-              <div className="pt-4 border-t border-black/5 flex items-center justify-between">
-                 <span className="text-[10px] font-bold text-black/40 flex items-center gap-1 uppercase">
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                 <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase">
                     <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                     Deed {land.title_deed_status}
                  </span>
-                 <button className="p-3 bg-black/5 rounded-xl hover:bg-black/10 transition-colors">
+                 <button className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors text-brand-blue">
                     <Edit3 className="w-4 h-4" />
                  </button>
               </div>
@@ -310,13 +310,13 @@ export default function LandManagement() {
 function Input({ label, value, onChange, placeholder, type = "text" }: any) {
   return (
     <div className="space-y-2">
-      <label className="text-[10px] font-bold uppercase tracking-widest text-black/40">{label}</label>
+      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</label>
       <input 
         required
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full px-5 py-4 bg-black/5 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-[#5A5A40]/20 transition-all outline-none" 
+        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none" 
         placeholder={placeholder}
       />
     </div>

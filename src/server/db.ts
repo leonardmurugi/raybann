@@ -160,6 +160,35 @@ export const dbInit = async () => {
       )
     `);
 
+    // --- MIGRATIONS ---
+    // Ensure is_approved and approved_by columns exist in existing tables
+    const tablesToMigrate = ['sales', 'payments', 'expenses', 'property_costs'];
+    for (const table of tablesToMigrate) {
+      // Add is_approved
+      await client.query(`
+        DO $$ 
+        BEGIN 
+          BEGIN
+            ALTER TABLE ${table} ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
+          EXCEPTION
+            WHEN duplicate_column THEN RAISE NOTICE 'column is_approved already exists in ${table}.';
+          END;
+        END $$;
+      `);
+      
+      // Add approved_by
+      await client.query(`
+        DO $$ 
+        BEGIN 
+          BEGIN
+            ALTER TABLE ${table} ADD COLUMN approved_by INTEGER REFERENCES users(id);
+          EXCEPTION
+            WHEN duplicate_column THEN RAISE NOTICE 'column approved_by already exists in ${table}.';
+          END;
+        END $$;
+      `);
+    }
+
     client.release();
     console.log('Database schema initialized');
   } catch (err) {

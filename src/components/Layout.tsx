@@ -78,8 +78,8 @@ export default function Layout() {
                   className={cn(
                     "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-semibold",
                     isActive 
-                      ? "bg-slate-900 text-white shadow-xl shadow-slate-200" 
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-brand-blue text-white shadow-xl shadow-brand-blue/20" 
+                      : "text-slate-500 hover:bg-slate-50 hover:text-brand-blue"
                   )}
                 >
                   <item.icon className={cn("w-5 h-5", isActive ? "text-white" : "opacity-70 group-hover:opacity-100")} />
@@ -91,9 +91,9 @@ export default function Layout() {
         </nav>
 
         <div className="p-4 border-t border-black/5">
-          <div className="bg-black/5 p-4 rounded-2xl flex flex-col gap-3">
+          <div className="bg-slate-50 p-4 rounded-2xl flex flex-col gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#5A5A40] flex items-center justify-center text-white font-bold">
+              <div className="w-10 h-10 rounded-full bg-brand-orange flex items-center justify-center text-white font-bold shadow-sm">
                 {user?.name?.[0].toUpperCase()}
               </div>
               <div className="flex flex-col overflow-hidden">
@@ -147,7 +147,7 @@ export default function Layout() {
                     onClick={() => setSidebarOpen(false)}
                     className={cn(
                       "flex items-center justify-between p-4 rounded-2xl transition-all",
-                      location.pathname === item.path ? "bg-[#5A5A40] text-white" : "bg-black/5 text-black/70"
+                      location.pathname === item.path ? "bg-brand-blue text-white shadow-lg" : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                     )}
                   >
                     <div className="flex items-center gap-3">

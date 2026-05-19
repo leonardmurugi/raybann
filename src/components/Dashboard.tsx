@@ -144,10 +144,10 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-brand-blue">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="text-sm font-semibold text-slate-900 border-l-2 border-slate-900 pl-4">Revenue Analytics</h3>
-            <select className="bg-slate-50 border-none rounded-lg text-[10px] font-bold uppercase tracking-widest px-4 py-2 outline-none text-slate-500">
+            <h3 className="text-sm font-display font-semibold border-l-2 border-brand-orange pl-4 uppercase tracking-wider">Revenue Analytics</h3>
+            <select className="bg-slate-50 border-none rounded-lg text-[10px] font-bold uppercase tracking-widest px-4 py-2 outline-none text-brand-blue/60">
               <option>Last 6 Months</option>
               <option>Last Year</option>
             </select>
@@ -157,8 +157,8 @@ export default function Dashboard() {
               <AreaChart data={mockData}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#5A5A40" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#5A5A40" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#1B315F" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#1B315F" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -185,7 +185,7 @@ export default function Dashboard() {
                 <Area 
                   type="monotone" 
                   dataKey="revenue" 
-                  stroke="#5A5A40" 
+                  stroke="#1B315F" 
                   strokeWidth={3}
                   fillOpacity={1} 
                   fill="url(#colorRev)" 
@@ -195,18 +195,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-[#1A1A1A] p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#5A5A40] rounded-full blur-[100px] opacity-20 -mr-32 -mt-32" />
+        <div className="bg-brand-blue p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-brand-orange rounded-full blur-[100px] opacity-20 -mr-32 -mt-32" />
           
           <div className="relative z-10">
-            <h3 className="text-xl font-bold tracking-tight mb-2">Expiring Payments</h3>
+            <h3 className="text-xl font-display font-bold tracking-tight mb-2">Expiring Payments</h3>
             <p className="text-white/40 text-xs font-medium mb-8">Follow up required for these plots</p>
             
             <div className="space-y-4">
               {[1, 2, 3].map((item) => (
                 <div key={item} className="group flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors cursor-pointer border border-white/5">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+                    <div className="w-10 h-10 rounded-xl bg-brand-orange/20 flex items-center justify-center text-brand-orange">
                       <AlertCircle className="w-5 h-5" />
                     </div>
                     <div>
@@ -220,7 +220,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <button className="relative z-10 w-full mt-10 py-5 bg-[#5A5A40] text-white rounded-2xl font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-black/20">
+          <button className="relative z-10 w-full mt-10 py-5 bg-brand-orange text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-brand-orange/20">
             Generate Report
           </button>
         </div>
