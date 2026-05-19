@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { 
   Plus, 
@@ -17,6 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function LandManagement() {
+  const navigate = useNavigate();
   const [lands, setLands] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [tab, setTab] = useState<'properties' | 'plots'>('properties');

@@ -92,7 +92,7 @@ export default function Dashboard() {
   if (loading) return (
     <div className="h-96 flex items-center justify-center">
       <div className="animate-pulse flex flex-col items-center gap-4">
-        <LandPlot className="w-12 h-12 text-[#5A5A40] opacity-20" />
+        <img src="/logo.png" alt="Raybann" className="h-16 w-auto opacity-20 grayscale" />
         <span className="text-sm font-bold tracking-widest uppercase opacity-30">Loading Insights...</span>
       </div>
     </div>

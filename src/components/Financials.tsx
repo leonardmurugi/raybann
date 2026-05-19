@@ -194,8 +194,7 @@ export default function Financials() {
 
                <div className="w-full text-center space-y-2 mb-10 pb-8 border-b border-dashed border-slate-100">
                   <div className="flex items-center justify-center gap-3 mb-2">
-                    <LandPlot className="w-8 h-8 text-slate-800" />
-                    <span className="text-2xl font-display font-semibold tracking-tight text-slate-900">Raybann Properties</span>
+                    <img src="/logo.png" alt="Raybann Properties" className="h-12 w-auto" />
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Property Acquisition & Management</p>
                   <p className="text-[8px] font-semibold text-slate-300">Nairobi, Kenya • 0700 000 000</p>

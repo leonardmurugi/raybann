@@ -36,11 +36,7 @@ export default function Login() {
           
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-10">
-              <LandPlot className="w-12 h-12 text-[#5A5A40]" />
-              <div className="flex flex-col">
-                <span className="text-3xl font-bold tracking-tighter leading-none">Raybann</span>
-                <span className="text-xs uppercase tracking-widest opacity-40 font-semibold">Properties Kenya</span>
-              </div>
+              <img src="/logo.png" alt="Raybann Properties" className="h-16 w-auto brightness-0 invert" />
             </div>
             <h2 className="text-5xl font-bold tracking-tighter leading-tight mb-6">
               Modern solution<br/>for land management.

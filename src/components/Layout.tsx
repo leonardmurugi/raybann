@@ -54,8 +54,7 @@ export default function Layout() {
       {/* Mobile Header */}
       <header className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200 fixed top-0 w-full z-50">
         <div className="flex items-center gap-2">
-          <LandPlot className="w-8 h-8 text-slate-900" />
-          <span className="text-xl font-display font-medium tracking-tight">Raybann</span>
+          <img src="/logo.png" alt="Raybann Properties Logo" className="h-10 w-auto" />
         </div>
         <button onClick={() => setSidebarOpen(true)} className="p-2">
           <Menu className="w-6 h-6" />
@@ -64,12 +63,8 @@ export default function Layout() {
 
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 h-screen fixed left-0 top-0">
-        <div className="p-8 flex items-center gap-3">
-          <LandPlot className="w-9 h-9 text-slate-900" />
-          <div className="flex flex-col">
-            <span className="text-2xl font-display font-medium tracking-tight leading-none text-slate-900">Raybann</span>
-            <span className="text-[10px] uppercase tracking-widest opacity-50 font-bold text-slate-500">Properties Kenya</span>
-          </div>
+        <div className="p-8 flex items-center justify-center">
+          <img src="/logo.png" alt="Raybann Properties" className="w-full h-auto max-w-[180px]" />
         </div>
 
         <nav className="flex-1 px-4 py-4">
@@ -137,8 +132,7 @@ export default function Layout() {
             >
               <div className="flex items-center justify-between mb-10">
                 <div className="flex items-center gap-2">
-                  <LandPlot className="w-8 h-8 text-[#5A5A40]" />
-                  <span className="text-xl font-bold tracking-tight">Rayban Properties</span>
+                  <img src="/logo.png" alt="Raybann Properties" className="h-10 w-auto" />
                 </div>
                 <button onClick={() => setSidebarOpen(false)} className="p-2 bg-black/5 rounded-full">
                   <X className="w-5 h-5" />
