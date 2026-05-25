@@ -131,7 +131,16 @@ export const dbInit = async () => {
         payment_id INTEGER REFERENCES payments(id),
         status TEXT NOT NULL DEFAULT 'pending', -- pending, official
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
+      );
+
+      -- Documents table for storing uploaded blobs
+      CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        customer_id INTEGER REFERENCES customers(id),
+        type TEXT NOT NULL CHECK (type IN ('saleAgreement','idDocument','kraCert','passportPhoto','titleDeed')),
+        blob BYTEA NOT NULL,
+        uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // Expenses table (Company Operations)

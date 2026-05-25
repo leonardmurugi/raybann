@@ -174,7 +174,7 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="lg:ml-64 pt-24 lg:pt-0 p-4 lg:p-12 transition-all duration-300">
+      <main className="lg:ml-64 mt-12 pt-24 lg:pt-0 p-4 lg:p-12 transition-all duration-300">
         <div className="max-w-6xl mx-auto space-y-12">
           <Outlet />
         </div>

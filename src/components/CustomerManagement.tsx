@@ -6,13 +6,9 @@ import {
   Mail, 
   Search, 
   Plus, 
-  History, 
-  ExternalLink,
-  ChevronRight,
-  LandPlot,
-  CreditCard,
-  Building2,
-  DollarSign
+  X,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -21,8 +17,19 @@ export default function CustomerManagement() {
   const [lands, setLands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaleOpen, setSaleOpen] = useState(false);
+  const [isAddClientOpen, setAddClientOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
+  // Client form
+  const [clientForm, setClientForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    id_number: ''
+  });
+
+  // Sale form
   const [saleForm, setSaleForm] = useState({
     land_id: '',
     total_price: 0,
@@ -47,6 +54,19 @@ export default function CustomerManagement() {
     }
   }
 
+  async function handleAddClient(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await api.customers.create(clientForm);
+      setAddClientOpen(false);
+      setClientForm({ name: '', email: '', phone: '', id_number: '' });
+      load();
+      alert('Client registered successfully!');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error adding client');
+    }
+  }
+
   async function handleSale(e: React.FormEvent) {
     e.preventDefault();
     try {
@@ -55,12 +75,23 @@ export default function CustomerManagement() {
         customer_id: selectedCustomer.id
       });
       setSaleOpen(false);
+      setSaleForm({ land_id: '', total_price: 0, paid_amount: 0, method: 'mpesa', transaction_ref: '' });
       load();
       alert('Sale recorded! Awaiting admin approval for payment.');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error');
+      alert(err instanceof Error ? err.message : 'Error recording sale');
     }
   }
+
+  const filteredCustomers = customers.filter(customer => {
+    const q = searchQuery.toLowerCase();
+    return (
+      customer.name.toLowerCase().includes(q) ||
+      customer.phone.includes(q) ||
+      customer.id_number.includes(q) ||
+      (customer.email && customer.email.toLowerCase().includes(q))
+    );
+  });
 
   return (
     <div className="space-y-10 pb-10 font-sans pt-4">
@@ -75,10 +106,15 @@ export default function CustomerManagement() {
             <input 
               type="text" 
               placeholder="Search clients..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-1 ring-brand-blue/20 transition-all font-sans"
             />
           </div>
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all hover:scale-105 shadow-lg shadow-brand-orange/20">
+          <button 
+            onClick={() => setAddClientOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all hover:scale-105 shadow-lg shadow-brand-orange/20"
+          >
             <Plus className="w-4 h-4" />
             Add Client
           </button>
@@ -99,13 +135,19 @@ export default function CustomerManagement() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 [1,2,3].map(i => <tr key={i} className="animate-pulse h-16 bg-slate-50/20" />)
+              ) : filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-8 py-10 text-center text-sm font-bold text-slate-300">
+                    No clients found
+                  </td>
+                </tr>
               ) : (
-                customers.map((customer) => (
+                filteredCustomers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-xs">
-                          {customer.name[0]}
+                          {customer.name[0]?.toUpperCase()}
                         </div>
                         <div>
                           <p className="font-display font-semibold text-sm text-brand-blue">{customer.name}</p>
@@ -141,6 +183,81 @@ export default function CustomerManagement() {
           </table>
         </div>
       </div>
+
+      {/* Add Client Modal */}
+      <AnimatePresence>
+        {isAddClientOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddClientOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100">
+              <header className="mb-8 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-brand-orange tracking-widest mb-1">CRM Database</p>
+                  <h2 className="text-3xl font-display font-bold tracking-tighter text-brand-blue">Add New Client</h2>
+                </div>
+                <button onClick={() => setAddClientOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </header>
+
+              <form onSubmit={handleAddClient} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Full Name</label>
+                  <input 
+                    required
+                    type="text"
+                    value={clientForm.name}
+                    onChange={e => setClientForm({...clientForm, name: e.target.value})}
+                    placeholder="e.g. John Doe"
+                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">ID / Passport Number</label>
+                  <input 
+                    required
+                    type="text"
+                    value={clientForm.id_number}
+                    onChange={e => setClientForm({...clientForm, id_number: e.target.value})}
+                    placeholder="e.g. 12345678"
+                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Phone Number</label>
+                    <input 
+                      required
+                      type="text"
+                      value={clientForm.phone}
+                      onChange={e => setClientForm({...clientForm, phone: e.target.value})}
+                      placeholder="e.g. 0700123456"
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Address</label>
+                    <input 
+                      type="email"
+                      value={clientForm.email}
+                      onChange={e => setClientForm({...clientForm, email: e.target.value})}
+                      placeholder="e.g. john@example.com"
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setAddClientOpen(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
+                  <button type="submit" className="flex-1 py-5 bg-brand-orange text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20 hover:scale-[1.02] transition-transform">Register Client</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isSaleOpen && (

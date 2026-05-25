@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
+import { api } from '../lib/api';
 
 export default function DataMigration() {
   const [fileData, setFileData] = useState<any[]>([]);
@@ -62,7 +63,21 @@ export default function DataMigration() {
   };
 
   const handleImport = async () => {
-    alert('This will process ' + fileData.length + ' records into ' + targetCollection + '. Backend mapping will be refined as per fields provided.');
+    if (fileData.length === 0) {
+      alert("No staged data to import.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.migrations.import(targetCollection, fileData);
+      alert(`Import complete! Successfully imported ${res.count} records into the ${targetCollection} database.`);
+      setFileData([]);
+      setIsMapping(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error importing data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -120,7 +135,12 @@ export default function DataMigration() {
         </div>
 
         <div className="lg:col-span-2">
-          {!isMapping ? (
+          {loading ? (
+            <div className="h-full min-h-[400px] bg-white border border-slate-100 rounded-[3rem] flex flex-col items-center justify-center text-center p-10">
+               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-orange mb-4"></div>
+               <p className="text-xl font-bold tracking-tight text-brand-blue">Processing Migration Upload...</p>
+            </div>
+          ) : !isMapping ? (
             <div className="h-full min-h-[400px] bg-slate-50/50 backdrop-blur-sm border-2 border-dashed border-slate-100 rounded-[3rem] flex flex-col items-center justify-center text-slate-200 text-center p-10">
                <Database className="w-20 h-20 mb-4 opacity-10" />
                <p className="text-xl font-bold tracking-tight text-slate-300">Stage your data</p>
