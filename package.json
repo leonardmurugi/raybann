@@ -34,7 +34,10 @@
     "vite": "^6.2.3",
     "xlsx": "^0.18.5",
     "multer": "^2.1.1",
-    "exceljs": "^4.3.0"
+    "exceljs": "^4.3.0",
+    "file-type": "^19.0.0",
+    "zod": "^3.22.4",
+    "express-rate-limit": "^7.2.0"
   },
   "resolutions": {
     "qs": "6.16.0"
@@ -50,7 +53,6 @@
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "typescript": "~5.8.2"
   }
 }
