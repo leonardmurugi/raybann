@@ -1,0 +1,234 @@
+import { useState, useEffect } from 'react';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Map as MapIcon, 
+  Users as UsersIcon, 
+  DollarSign, 
+  AlertCircle,
+  ArrowUpRight,
+  LandPlot,
+  Building2,
+  ChevronRight
+} from 'lucide-react';
+import { api } from '../lib/api';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar
+} from 'recharts';
+import { motion } from 'motion/react';
+
+const mockData = [
+  { name: 'Jan', revenue: 4000, expenses: 2400 },
+  { name: 'Feb', revenue: 3000, expenses: 1398 },
+  { name: 'Mar', revenue: 2000, expenses: 9800 },
+  { name: 'Apr', revenue: 2780, expenses: 3908 },
+  { name: 'May', revenue: 1890, expenses: 4800 },
+  { name: 'Jun', revenue: 2390, expenses: 3800 },
+];
+
+export default function Dashboard() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const data = await api.dashboard.stats();
+        setStats(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadStats();
+  }, []);
+
+  const cards = [
+    { 
+      title: 'Gross Collection', 
+      value: `KES ${stats?.received?.toLocaleString() || '0'}`, 
+      icon: TrendingUp, 
+      color: 'bg-emerald-500', 
+      desc: 'All-time approved payments' 
+    },
+    { 
+      title: 'Customer Debt', 
+      value: `KES ${stats?.landDebt?.toLocaleString() || '0'}`, 
+      icon: AlertCircle, 
+      color: 'bg-rose-500', 
+      desc: 'Total balances from plot sales' 
+    },
+    { 
+      title: 'Portfolio Size', 
+      value: stats?.propertyCount?.toString() || '0', 
+      icon: Building2, 
+      color: 'bg-amber-500', 
+      desc: 'Main properties acquired' 
+    },
+    { 
+      title: 'Plot Inventory', 
+      value: `${stats?.landCount || 0}`, 
+      icon: LandPlot, 
+      color: 'bg-blue-500', 
+      desc: 'Total subdivided units' 
+    },
+  ];
+
+  const secondaryStats = [
+    { label: 'Unpaid Land Balances', value: `KES ${stats?.propertyDebt?.toLocaleString() || '0'}`, desc: 'Owed to original sellers' },
+    { label: 'Operating Expenses', value: `KES ${stats?.expenses?.toLocaleString() || '0'}`, desc: 'Approved company costs' },
+    { label: 'Available Plots', value: stats?.landCount || 0, desc: 'Ready for sale' },
+  ];
+
+  if (loading) return (
+    <div className="h-96 flex items-center justify-center">
+      <div className="animate-pulse flex flex-col items-center gap-4">
+        <img src="/logo.png" alt="Raybann" className="h-16 w-auto opacity-20 grayscale" />
+        <span className="text-sm font-bold tracking-widest uppercase opacity-30">Loading Insights...</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-10 pb-10 font-sans pt-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-medium tracking-tight text-slate-900">Overview</h1>
+          <p className="text-slate-500 text-sm font-medium">Raybann Properties — Nairobi HQ</p>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">System Secure</span>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((card, idx) => (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.05 }}
+            key={card.title}
+            className="group bg-white p-6 rounded-2xl border border-slate-100 hover:shadow-xl transition-all duration-300"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className={cn("p-2.5 rounded-xl text-white shadow-sm", card.color)}>
+                <card.icon className="w-5 h-5" />
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-200 opacity-0 group-hover:opacity-100 transition-all" />
+            </div>
+            <div>
+              <p className="text-2xl font-display font-semibold text-slate-900">{card.value}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{card.title}</p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        {secondaryStats.map((stat) => (
+          <div key={stat.label} className="bg-white/60 border border-slate-100 px-6 py-4 rounded-xl flex flex-col min-w-[200px]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{stat.label}</span>
+            <span className="text-lg font-display font-medium text-slate-800">{stat.value}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-brand-blue">
+          <div className="flex items-center justify-between mb-10">
+            <h3 className="text-sm font-display font-semibold border-l-2 border-brand-orange pl-4 uppercase tracking-wider">Revenue Analytics</h3>
+            <select className="bg-slate-50 border-none rounded-lg text-[10px] font-bold uppercase tracking-widest px-4 py-2 outline-none text-brand-blue/60">
+              <option>Last 6 Months</option>
+              <option>Last Year</option>
+            </select>
+          </div>
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={mockData}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1B315F" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#1B315F" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, opacity: 0.4 }} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, opacity: 0.4 }} 
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '16px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#1B315F" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#colorRev)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-brand-blue p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-brand-orange rounded-full blur-[100px] opacity-20 -mr-32 -mt-32" />
+          
+          <div className="relative z-10">
+            <h3 className="text-xl font-display font-bold tracking-tight mb-2">Expiring Payments</h3>
+            <p className="text-white/40 text-xs font-medium mb-8">Follow up required for these plots</p>
+            
+            <div className="space-y-4">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="group flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors cursor-pointer border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-orange/20 flex items-center justify-center text-brand-orange">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Plot 44-B</p>
+                      <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Overdue: 12 Days</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button className="relative z-10 w-full mt-10 py-5 bg-brand-orange text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-brand-orange/20">
+            Generate Report
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
+}

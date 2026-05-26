@@ -5,8 +5,7 @@ import {
   Clock, 
   DollarSign, 
   ThumbsUp,
-  X,
-  ShieldAlert
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -65,23 +64,9 @@ export default function Approvals() {
 
   return (
     <div className="space-y-8 pb-10 font-sans pt-4">
-      <header className="space-y-4">
-        <div>
-          <h1 className="text-4xl font-display font-medium tracking-tighter text-brand-blue">Approvals</h1>
-          <p className="text-slate-400 text-sm font-medium">Review, audit, and validate critical financial operations</p>
-        </div>
-        
-        <div className="bg-brand-blue p-5 rounded-2xl border border-brand-orange/20 text-white flex items-center gap-4 shadow-md max-w-4xl">
-          <div className="w-10 h-10 rounded-xl bg-white/10 text-brand-orange flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-5 h-5 text-brand-orange" />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-brand-orange uppercase tracking-wider mb-0.5">Mandatory Compliance Policy Enforced</p>
-            <p className="text-xs text-slate-300 leading-relaxed font-semibold">
-              Every deposit, installment payment, operating expense, and property cost logged must be approved by an administrator. The ledger and plot sales remain pending until verified.
-            </p>
-          </div>
-        </div>
+      <header>
+        <h1 className="text-4xl font-display font-medium tracking-tighter text-brand-blue">Approvals</h1>
+        <p className="text-slate-400 text-sm font-medium">Review and validate financial records</p>
       </header>
 
       {loading ? (

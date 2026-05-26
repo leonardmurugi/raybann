@@ -85,17 +85,5 @@ export const api = {
   },
   migrations: {
     import: (target: string, data: any[]) => apiRequest('/migrations/import', { method: 'POST', body: JSON.stringify({ target, data }) }),
-  },
-  debtsPayables: {
-    list: () => apiRequest('/debts-payables'),
-    create: (data: any) => apiRequest('/debts-payables', { method: 'POST', body: JSON.stringify(data) }),
-  },
-  payroll: {
-    list: () => apiRequest('/payroll'),
-    create: (data: any) => apiRequest('/payroll', { method: 'POST', body: JSON.stringify(data) }),
-  },
-  pettyCash: {
-    list: () => apiRequest('/petty-cash'),
-    create: (data: any) => apiRequest('/petty-cash', { method: 'POST', body: JSON.stringify(data) }),
   }
 };

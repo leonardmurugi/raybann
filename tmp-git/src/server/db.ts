@@ -169,49 +169,6 @@ export const dbInit = async () => {
       )
     `);
 
-    // Debts & Payables (Vendor liabilities / land owners)
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS debts_payables (
-        id SERIAL PRIMARY KEY,
-        creditor_name TEXT NOT NULL,
-        description TEXT,
-        total_amount NUMERIC NOT NULL DEFAULT 0,
-        paid_amount NUMERIC NOT NULL DEFAULT 0,
-        balance NUMERIC NOT NULL DEFAULT 0,
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        payment_method TEXT,
-        status TEXT DEFAULT 'pending'
-      )
-    `);
-
-    // Payroll Table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS payroll (
-        id SERIAL PRIMARY KEY,
-        staff_name TEXT NOT NULL,
-        month_year TEXT NOT NULL,
-        basic NUMERIC NOT NULL DEFAULT 0,
-        commission NUMERIC NOT NULL DEFAULT 0,
-        transport NUMERIC NOT NULL DEFAULT 0,
-        deductions NUMERIC NOT NULL DEFAULT 0,
-        gross_amount NUMERIC NOT NULL DEFAULT 0,
-        net_amount NUMERIC NOT NULL DEFAULT 0,
-        reporting_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Petty Cash Table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS petty_cash (
-        id SERIAL PRIMARY KEY,
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        type TEXT NOT NULL CHECK (type IN ('debit', 'credit')),
-        description TEXT NOT NULL,
-        ref_number TEXT,
-        amount NUMERIC NOT NULL DEFAULT 0
-      )
-    `);
-
     // --- MIGRATIONS ---
     // Ensure is_approved and approved_by columns exist in existing tables
     const tablesToMigrate = ['sales', 'payments', 'expenses', 'property_costs'];

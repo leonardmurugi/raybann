@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Financials() {
-  const [activeTab, setActiveTab] = useState<'customer-payments' | 'office-expenses' | 'property-costs' | 'sales-invoices' | 'payroll' | 'debts-payables' | 'petty-cash'>('customer-payments');
+  const [activeTab, setActiveTab] = useState<'customer-payments' | 'office-expenses' | 'property-costs' | 'sales-invoices'>('customer-payments');
   const [data, setData] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
@@ -38,9 +38,6 @@ export default function Financials() {
   const [isAddPaymentOpen, setAddPaymentOpen] = useState(false);
   const [isAddExpenseOpen, setAddExpenseOpen] = useState(false);
   const [isAddPropCostOpen, setAddPropCostOpen] = useState(false);
-  const [isAddPayrollOpen, setAddPayrollOpen] = useState(false);
-  const [isAddDebtOpen, setAddDebtOpen] = useState(false);
-  const [isAddPettyOpen, setAddPettyOpen] = useState(false);
 
   // Forms
   const [paymentForm, setPaymentForm] = useState({
@@ -63,37 +60,6 @@ export default function Financials() {
     category: 'survey',
     amount: 0,
     description: ''
-  });
-
-  const [payrollForm, setPayrollForm] = useState({
-    staff_name: '',
-    month_year: 'August 2025',
-    basic: 0,
-    commission: 0,
-    transport: 0,
-    deductions: 0,
-    gross_amount: 0,
-    net_amount: 0,
-    reporting_date: ''
-  });
-
-  const [debtForm, setDebtForm] = useState({
-    creditor_name: '',
-    description: '',
-    total_amount: 0,
-    paid_amount: 0,
-    balance: 0,
-    date: '',
-    payment_method: 'CASH',
-    status: 'pending'
-  });
-
-  const [pettyForm, setPettyForm] = useState({
-    date: '',
-    type: 'credit',
-    description: '',
-    ref_number: '',
-    amount: 0
   });
 
   useEffect(() => {
@@ -135,15 +101,6 @@ export default function Financials() {
         setData(list);
       } else if (activeTab === 'sales-invoices') {
         const list = await api.sales.list();
-        setData(list);
-      } else if (activeTab === 'payroll') {
-        const list = await api.payroll.list();
-        setData(list);
-      } else if (activeTab === 'debts-payables') {
-        const list = await api.debtsPayables.list();
-        setData(list);
-      } else if (activeTab === 'petty-cash') {
-        const list = await api.pettyCash.list();
         setData(list);
       }
     } catch (err) {
@@ -220,56 +177,6 @@ export default function Financials() {
     }
   }
 
-  async function handleRecordPayroll(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const gross = parseFloat(String(payrollForm.basic)) + parseFloat(String(payrollForm.commission)) + parseFloat(String(payrollForm.transport));
-      const net = gross - parseFloat(String(payrollForm.deductions));
-      await api.payroll.create({
-        ...payrollForm,
-        gross_amount: gross,
-        net_amount: net
-      });
-      setAddPayrollOpen(false);
-      setPayrollForm({ staff_name: '', month_year: 'August 2025', basic: 0, commission: 0, transport: 0, deductions: 0, gross_amount: 0, net_amount: 0, reporting_date: '' });
-      loadData();
-      alert('Payroll record recorded successfully.');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error recording payroll');
-    }
-  }
-
-  async function handleRecordDebt(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const bal = parseFloat(String(debtForm.total_amount)) - parseFloat(String(debtForm.paid_amount));
-      await api.debtsPayables.create({
-        ...debtForm,
-        balance: bal,
-        status: bal <= 0 ? 'cleared' : 'pending'
-      });
-      setAddDebtOpen(false);
-      setDebtForm({ creditor_name: '', description: '', total_amount: 0, paid_amount: 0, balance: 0, date: '', payment_method: 'CASH', status: 'pending' });
-      loadData();
-      alert('Vendor debt recorded successfully.');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error recording debt');
-    }
-  }
-
-  async function handleRecordPetty(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await api.pettyCash.create(pettyForm);
-      setAddPettyOpen(false);
-      setPettyForm({ date: '', type: 'credit', description: '', ref_number: '', amount: 0 });
-      loadData();
-      alert('Petty cash ledger record added.');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error recording petty cash row');
-    }
-  }
-
   // Calculate totals for quick overview cards
   const balanceOutstanding = sales.reduce((acc, sale) => acc + (parseFloat(sale.total_price) - parseFloat(sale.paid_amount)), 0);
   const totalCollections = data.filter(d => d.type === 'received' && d.is_approved).reduce((acc, d) => acc + parseFloat(d.amount), 0);
@@ -281,21 +188,18 @@ export default function Financials() {
           <h1 className="text-3xl font-display font-medium tracking-tight text-slate-900">Finance</h1>
           <p className="text-slate-500 text-sm font-medium">Ledger management and financial categorization</p>
         </div>
-        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex-wrap gap-1">
+        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex-wrap">
           {[
             { id: 'customer-payments', label: 'Payments', icon: Users },
             { id: 'office-expenses', label: 'Operations', icon: Building2 },
             { id: 'property-costs', label: 'Property Costs', icon: Wallet },
             { id: 'sales-invoices', label: 'Invoices', icon: FileSpreadsheet },
-            { id: 'payroll', label: 'Payroll', icon: Users },
-            { id: 'debts-payables', label: 'Vendor Debts', icon: Wallet },
-            { id: 'petty-cash', label: 'Petty Cash', icon: FileSpreadsheet },
           ].map((tab) => (
             <button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                "px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all",
+                "px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all",
                 activeTab === tab.id ? "bg-brand-blue text-white shadow-sm" : "text-slate-400 hover:text-brand-blue"
               )}
             >
@@ -350,10 +254,7 @@ export default function Financials() {
                   {activeTab === 'customer-payments' ? 'Customer Payments Ledger' :
                    activeTab === 'office-expenses' ? 'Office Expenses Ledger' :
                    activeTab === 'property-costs' ? 'Property Costs (Survey, Subdivisions, Deeds)' :
-                   activeTab === 'sales-invoices' ? 'Client Invoices Overview' :
-                   activeTab === 'payroll' ? 'Staff Payroll Schedules & Salaries' :
-                   activeTab === 'debts-payables' ? 'Company Vendor Debts & Liabilities' :
-                   'Petty Cash Book Ledger'}
+                   'Client Invoices Overview'}
                 </h3>
                 
                 {/* Dynamic Logging Buttons based on active tab */}
@@ -379,30 +280,6 @@ export default function Financials() {
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-orange text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-brand-orange/20"
                   >
                     <Plus className="w-3.5 h-3.5" /> Log Property Cost
-                  </button>
-                )}
-                {activeTab === 'payroll' && (
-                  <button 
-                    onClick={() => setAddPayrollOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-orange text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-brand-orange/20"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Log Staff Salary
-                  </button>
-                )}
-                {activeTab === 'debts-payables' && (
-                  <button 
-                    onClick={() => setAddDebtOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-orange text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-brand-orange/20"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Log Vendor Liability
-                  </button>
-                )}
-                {activeTab === 'petty-cash' && (
-                  <button 
-                    onClick={() => setAddPettyOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-orange text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-brand-orange/20"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> New Ledger Entry
                   </button>
                 )}
              </div>
@@ -434,94 +311,6 @@ export default function Financials() {
                         >
                           Generate Invoice
                         </button>
-                      </div>
-                    </div>
-                  ))
-                ) : activeTab === 'payroll' ? (
-                  data.map((item) => (
-                    <div key={item.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
-                          <Users className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="font-display font-semibold text-[13px] text-brand-blue">{item.staff_name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Period: {item.month_year} • Basic: KES {parseFloat(item.basic || 0).toLocaleString()} • Comm: KES {parseFloat(item.commission || 0).toLocaleString()} • Trans: KES {parseFloat(item.transport || 0).toLocaleString()}
-                          </p>
-                          {item.reporting_date && (
-                            <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold">
-                              Date Filed: {new Date(item.reporting_date).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-display font-bold text-[13px] text-slate-800">KES {parseFloat(item.net_amount || 0).toLocaleString()}</p>
-                        <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest mt-0.5">Deductions: -KES {parseFloat(item.deductions || 0).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : activeTab === 'debts-payables' ? (
-                  data.map((item) => (
-                    <div key={item.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-orange-50 text-brand-orange flex items-center justify-center font-bold">
-                          <Wallet className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="font-display font-semibold text-[13px] text-slate-800">{item.creditor_name}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className={cn(
-                              "px-2 py-0.5 text-[9px] font-bold uppercase rounded",
-                              item.status === 'cleared' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                            )}>
-                              {item.status}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              Date: {item.date ? new Date(item.date).toLocaleDateString() : 'N/A'} • Method: {item.payment_method}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-display font-extrabold text-[13px] text-red-600">Balance: KES {parseFloat(item.balance || 0).toLocaleString()}</p>
-                        <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
-                          Total: KES {parseFloat(item.total_amount || 0).toLocaleString()} • Paid: KES {parseFloat(item.paid_amount || 0).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : activeTab === 'petty-cash' ? (
-                  data.map((item) => (
-                    <div key={item.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center font-bold",
-                          item.type === 'debit' ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
-                        )}>
-                          {item.type === 'debit' ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
-                        </div>
-                        <div>
-                          <p className="font-display font-semibold text-[13px] text-slate-800">{item.description}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Voucher/Ref: {item.ref_number || 'N/A'} • Type: <span className={item.type === 'debit' ? "text-emerald-500" : "text-red-500 font-semibold"}>{item.type === 'debit' ? 'Receipt (Debit)' : 'Payout (Credit)'}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={cn(
-                          "font-display font-bold text-[13px]",
-                          item.type === 'debit' ? "text-emerald-600" : "text-rose-600"
-                        )}>
-                          {item.type === 'debit' ? '+' : '-'} KES {parseFloat(item.amount || 0).toLocaleString()}
-                        </p>
-                        {item.date && (
-                          <p className="text-[9px] text-slate-400 mt-0.5">
-                            {new Date(item.date).toLocaleDateString()}
-                          </p>
-                        )}
                       </div>
                     </div>
                   ))
@@ -838,299 +627,6 @@ export default function Financials() {
                 <div className="flex gap-4 pt-4">
                   <button type="button" onClick={() => setAddPropCostOpen(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
                   <button type="submit" className="flex-1 py-5 bg-brand-orange text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20 hover:scale-[1.02] transition-transform">Log Property Cost</button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Record Staff Payroll Modal */}
-      <AnimatePresence>
-        {isAddPayrollOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddPayrollOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
-              <header className="mb-6 flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-brand-orange tracking-widest mb-1">Human Resources</p>
-                  <h2 className="text-2xl font-display font-bold tracking-tighter text-brand-blue">Record Staff Salary</h2>
-                </div>
-                <button onClick={() => setAddPayrollOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </header>
-
-              <form onSubmit={handleRecordPayroll} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Employee Name</label>
-                  <input 
-                    type="text" required
-                    value={payrollForm.staff_name}
-                    onChange={e => setPayrollForm({...payrollForm, staff_name: e.target.value})}
-                    placeholder="e.g. Jane Doe"
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Month / Year</label>
-                    <input 
-                      type="text" required
-                      value={payrollForm.month_year}
-                      onChange={e => setPayrollForm({...payrollForm, month_year: e.target.value})}
-                      placeholder="e.g. August 2025"
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Payment Date</label>
-                    <input 
-                      type="date" required
-                      value={payrollForm.reporting_date}
-                      onChange={e => setPayrollForm({...payrollForm, reporting_date: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Basic Pay (KES)</label>
-                    <input 
-                      type="number" required
-                      value={payrollForm.basic}
-                      onChange={e => setPayrollForm({...payrollForm, basic: parseFloat(e.target.value) || 0})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Commission (KES)</label>
-                    <input 
-                      type="number"
-                      value={payrollForm.commission}
-                      onChange={e => setPayrollForm({...payrollForm, commission: parseFloat(e.target.value) || 0})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Transport Allowances (KES)</label>
-                    <input 
-                      type="number"
-                      value={payrollForm.transport}
-                      onChange={e => setPayrollForm({...payrollForm, transport: parseFloat(e.target.value) || 0})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deductions (KES)</label>
-                    <input 
-                      type="number"
-                      value={payrollForm.deductions}
-                      onChange={e => setPayrollForm({...payrollForm, deductions: parseFloat(e.target.value) || 0})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center text-xs mt-2">
-                  <span className="font-bold text-slate-500">Calculated Net Payable:</span>
-                  <span className="text-sm font-black text-brand-blue">
-                    KES {( (payrollForm.basic || 0) + (payrollForm.commission || 0) + (payrollForm.transport || 0) - (payrollForm.deductions || 0) ).toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setAddPayrollOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
-                  <button type="submit" className="flex-1 py-4 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20">Log Payroll</button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Record Vendor Debt Modal */}
-      <AnimatePresence>
-        {isAddDebtOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddDebtOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100">
-              <header className="mb-6 flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-brand-orange tracking-widest mb-1">Liabilities & Debts</p>
-                  <h2 className="text-2xl font-display font-bold tracking-tighter text-brand-blue">Record Vendor Debt</h2>
-                </div>
-                <button onClick={() => setAddDebtOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </header>
-
-              <form onSubmit={handleRecordDebt} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Creditor Name / Company</label>
-                  <input 
-                    type="text" required
-                    value={debtForm.creditor_name}
-                    onChange={e => setDebtForm({...debtForm, creditor_name: e.target.value})}
-                    placeholder="e.g. Zenith Surveyors Ltd"
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Debt Description / Plot Reference</label>
-                  <input 
-                    type="text" required
-                    value={debtForm.description}
-                    onChange={e => setDebtForm({...debtForm, description: e.target.value})}
-                    placeholder="e.g. Survey subdivision outstanding payables"
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Date Logged</label>
-                    <input 
-                      type="date" required
-                      value={debtForm.date}
-                      onChange={e => setDebtForm({...debtForm, date: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Payment Method</label>
-                    <select 
-                      value={debtForm.payment_method}
-                      onChange={e => setDebtForm({...debtForm, payment_method: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                    >
-                      <option value="CASH">Cash</option>
-                      <option value="MPESA">M-Pesa</option>
-                      <option value="BANK">Bank Transfer</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Debt Amount (KES)</label>
-                    <input 
-                      type="number" required
-                      value={debtForm.total_amount}
-                      onChange={e => setDebtForm({...debtForm, total_amount: parseFloat(e.target.value) || 0})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-orange"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Amount Already Paid (KES)</label>
-                    <input 
-                      type="number" required
-                      value={debtForm.paid_amount}
-                      onChange={e => setDebtForm({...debtForm, paid_amount: parseFloat(e.target.value) || 0})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-emerald-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center text-xs mt-2">
-                  <span className="font-bold text-slate-500">Balance Remaining:</span>
-                  <span className="text-sm font-black text-rose-500">
-                    KES {( (debtForm.total_amount || 0) - (debtForm.paid_amount || 0) ).toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setAddDebtOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
-                  <button type="submit" className="flex-1 py-4 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20">Log Debt Record</button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Record Petty Cash Modal */}
-      <AnimatePresence>
-        {isAddPettyOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddPettyOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100">
-              <header className="mb-6 flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-brand-orange tracking-widest mb-1">Company Petty Cash Book</p>
-                  <h2 className="text-2xl font-display font-bold tracking-tighter text-brand-blue">New Petty cash Entry</h2>
-                </div>
-                <button onClick={() => setAddPettyOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </header>
-
-              <form onSubmit={handleRecordPetty} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Entry Description</label>
-                  <input 
-                    type="text" required
-                    value={pettyForm.description}
-                    onChange={e => setPettyForm({...pettyForm, description: e.target.value})}
-                    placeholder="e.g. Office tea, snacks & refreshments"
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Date</label>
-                    <input 
-                      type="date" required
-                      value={pettyForm.date}
-                      onChange={e => setPettyForm({...pettyForm, date: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Voucher / Ref Number</label>
-                    <input 
-                      type="text" required
-                      value={pettyForm.ref_number}
-                      onChange={e => setPettyForm({...pettyForm, ref_number: e.target.value})}
-                      placeholder="e.g. VCH-1049"
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Entry Type</label>
-                    <select 
-                      value={pettyForm.type}
-                      onChange={e => setPettyForm({...pettyForm, type: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
-                    >
-                      <option value="credit">payout (Credit Expense)</option>
-                      <option value="debit">deposit (Debit Income)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Amount (KES)</label>
-                    <input 
-                      type="number" required
-                      value={pettyForm.amount}
-                      onChange={e => setPettyForm({...pettyForm, amount: parseFloat(e.target.value) || 0})}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-orange"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setAddPettyOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
-                  <button type="submit" className="flex-1 py-4 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20">Record Entry</button>
                 </div>
               </form>
             </motion.div>

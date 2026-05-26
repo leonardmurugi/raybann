@@ -36,24 +36,17 @@ export const ReceiptUploader: React.FC = () => {
     const form = new FormData();
     form.append('file', file);
     form.append('type', type);
-    const response = await fetch('/api/receipts/upload', {
-      method: 'POST',
-      body: form,
+    const resp = await axios.post('/api/receipts/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
-    const data = await response.json();
-    setFiles(prev => [...prev, { id: data.fileId, type, name: file.name }]);
+    setFiles(prev => [...prev, { id: resp.data.fileId, type, name: file.name }]);
   };
 
   const generateReceipt = async () => {
     setStatus('Generating…');
     const payload = { excelData, fileIds: files.map(f => f.id) };
-    const response = await fetch('/api/receipts/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    setReceiptId(data.receiptId);
+    const resp = await axios.post('/api/receipts/generate', payload);
+    setReceiptId(resp.data.receiptId);
     setStatus('Ready for download');
   };
 

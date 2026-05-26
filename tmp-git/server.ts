@@ -10,6 +10,14 @@ import pool, { dbInit } from "./src/server/db.ts";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import multer from "multer";
 import { parseExcel } from "./src/lib/csvParser.js";
+import path from "path";
+import cors from "cors";
+import helmet from "helmet";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { createServer as createViteServer } from "vite";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -309,7 +317,7 @@ app.post("/api/receipts", authenticateToken, async (req, res) => {
     if (!customerId || !receiptData) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    const files = ((req as any).files && (req as any).files.documents) || [];
+    const files = (req.files && (req.files as any).documents) || [];
     // Validate and store each document as blob
     const client = await pool.connect();
     try {
@@ -447,7 +455,6 @@ app.post("/api/csv/import", authenticateToken, async (req, res) => {
     }
   });
 
-app.get("/api/payments", authenticateToken, async (req, res) => {
   const { startDate, endDate } = req.query;
   let query = `
     SELECT p.*, r.receipt_number, r.status as receipt_status, c.name as customer_name
@@ -732,171 +739,6 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
           [parent_property_id, plot_number, location, size, 'purchase', status, total_cost, paid_amount, title_deed_status]
         );
       }
-    } else if (target === 'payroll') {
-      for (const row of data) {
-        const staff_name = row.staff_name || row.NAME || row.Name || row.name || '';
-        if (!staff_name || staff_name.toUpperCase() === 'TOTAL' || staff_name.toUpperCase().includes('RAYBANN')) continue;
-        const month_year = row.month_year || 'August 2025';
-        const basic = parseFloat(row.basic || row.BASIC || '0');
-        const commission = parseFloat(row.commission || row.COMMISSION || '0');
-        const transport = parseFloat(row.transport || row.TRANSPORT || '0');
-        const deductions = parseFloat(row.deductions || row.DEDUCTIONS || '0');
-        const gross_amount = parseFloat(row.gross_amount || row.gross || row.GROSS || '0');
-        const net_amount = parseFloat(row.net_amount || row.net || row.NET || '0');
-        let reporting_date = row.reporting_date || row['REPORTING DATE'] || row.date || new Date();
-
-        await client.query(
-          `INSERT INTO payroll (staff_name, month_year, basic, commission, transport, deductions, gross_amount, net_amount, reporting_date) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [staff_name, month_year, basic, commission, transport, deductions, gross_amount, net_amount, reporting_date]
-        );
-      }
-    } else if (target === 'debts_payables') {
-      let currentCreditor = "";
-      let currentDesc = "";
-      let currentTotalVal = 0;
-      for (const row of data) {
-        let creditor_name = row.DEBT || row.name || row.Name || row.creditor || '';
-        let description = row.description || row.decscriptn || row.desc || '';
-        let total_amount = parseFloat(row.AMOUNT || row.amount || '0');
-        const paid_amount = parseFloat(row.PAID || row.paid || '0');
-        const date = row.DATE || row.date || new Date();
-        const payment_method = row['MODE(FROM)'] || row.mode || row.method || 'CASH';
-        const balance = parseFloat(row.BALANCE || row.balance || '0');
-
-        creditor_name = String(creditor_name).trim();
-        if (creditor_name && creditor_name !== 'undefined' && creditor_name !== '') {
-          currentCreditor = creditor_name;
-          currentDesc = description;
-          currentTotalVal = total_amount;
-        }
-
-        if (!currentCreditor) continue;
-
-        await client.query(
-          `INSERT INTO debts_payables (creditor_name, description, total_amount, paid_amount, balance, date, payment_method, status) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            currentCreditor, 
-            currentDesc || 'Vendor Expense / Liability', 
-            currentTotalVal, 
-            paid_amount, 
-            balance, 
-            date, 
-            payment_method, 
-            balance === 0 ? 'cleared' : 'pending'
-          ]
-        );
-      }
-    } else if (target === 'petty_cash') {
-      for (const row of data) {
-        const d_date = row.date_debit || row.Date || row.date || null;
-        const d_desc = row.desc_debit || row.Description || row.description || '';
-        const d_ref = row.ref_debit || row.CBN || '';
-        const d_amount = parseFloat(row.amount_debit || row.Amount || '0');
-
-        const c_date = row.date_credit || row.Date_1 || row.date || null;
-        const c_desc = row.desc_credit || row.Description_1 || '';
-        const c_ref = row.ref_credit || row.VN || '';
-        const c_amount = parseFloat(row.amount_credit || row.Amount_1 || '0');
-
-        if (d_date && d_amount > 0) {
-          await client.query(
-            `INSERT INTO petty_cash (date, type, description, ref_number, amount) 
-             VALUES ($1, 'debit', $2, $3, $4)`,
-            [d_date, d_desc, d_ref, d_amount]
-          );
-        }
-
-        if (c_date && c_amount > 0) {
-          await client.query(
-            `INSERT INTO petty_cash (date, type, description, ref_number, amount) 
-             VALUES ($1, 'credit', $2, $3, $4)`,
-            [c_date, c_desc, c_ref, c_amount]
-          );
-        }
-      }
-    } else if (target === 'sales_ledger') {
-      let currentCustomer = "";
-      let currentPlot = "";
-      let currentAmount = 0;
-      
-      for (const row of data) {
-        let name = row['CUSTOMER NAME'] || row.customer_name || row.Name || row.name || '';
-        let plot = row['PLOT DESCRIPTION'] || row.plot_description || row.plot || '';
-        let amount = parseFloat(row.AMOUNT || row.amount || '0');
-        const payment = parseFloat(row['ACTUAL PAYMENT'] || row.actual_payment || row.paid || '0');
-        const date = row.DATE || row.date || new Date();
-        const status = row['STATUS/TOTAL PAID'] || row.status || '';
-        const balance = parseFloat(row['BALANCE(C-F)'] || row.balance || '0');
-
-        name = String(name).trim();
-        plot = String(plot).trim();
-
-        if (name && name !== 'undefined' && name !== '') {
-          currentCustomer = name;
-          currentPlot = plot;
-          currentAmount = amount;
-        }
-
-        if (!currentCustomer) continue;
-
-        let custRes = await client.query("SELECT id FROM customers WHERE name ILIKE $1", [currentCustomer]);
-        let customer_id;
-        if (custRes.rows.length === 0) {
-          const fakeId = "MIG-" + Math.floor(100000 + Math.random() * 900000);
-          const phone = "+2547" + Math.floor(10000000 + Math.random() * 90000000);
-          const insRes = await client.query(
-            "INSERT INTO customers (name, phone, id_number) VALUES ($1, $2, $3) RETURNING id",
-            [currentCustomer, phone, fakeId]
-          );
-          customer_id = insRes.rows[0].id;
-        } else {
-          customer_id = custRes.rows[0].id;
-        }
-
-        let land_id = null;
-        if (currentPlot) {
-          let landRes = await client.query("SELECT id FROM lands WHERE plot_number = $1", [currentPlot]);
-          if (landRes.rows.length === 0) {
-            const insLand = await client.query(
-              `INSERT INTO lands (plot_number, location, size, acquisition_type, status, total_cost, paid_amount, customer_id) 
-               VALUES ($1, 'Kajiado / Kenya', '50x100', 'purchase', 'reserved', $2, $3, $4) RETURNING id`,
-              [currentPlot, currentAmount, payment, customer_id]
-            );
-            land_id = insLand.rows[0].id;
-          } else {
-            land_id = landRes.rows[0].id;
-            await client.query(
-              "UPDATE lands SET paid_amount = paid_amount + $1, customer_id = $2 WHERE id = $3",
-              [payment, customer_id, land_id]
-            );
-          }
-        }
-
-        let sale_id = null;
-        if (land_id) {
-          let saleRes = await client.query("SELECT id FROM sales WHERE land_id = $1 AND customer_id = $2", [land_id, customer_id]);
-          if (saleRes.rows.length === 0) {
-            const insSale = await client.query(
-              "INSERT INTO sales (land_id, customer_id, total_price, paid_amount, is_approved) VALUES ($1, $2, $3, $4, TRUE) RETURNING id",
-              [land_id, customer_id, currentAmount, payment]
-            );
-            sale_id = insSale.rows[0].id;
-          } else {
-            sale_id = saleRes.rows[0].id;
-            await client.query("UPDATE sales SET paid_amount = paid_amount + $1 WHERE id = $2", [payment, sale_id]);
-          }
-        }
-
-        if (payment > 0) {
-          await client.query(
-            `INSERT INTO payments (type, amount, method, category, description, reference_id, reference_type, transaction_ref, is_approved, date) 
-             VALUES ('received', $1, 'bank', 'plot_installment', $2, $3, 'sale', $4, TRUE, $5)`,
-            [payment, `Installment payment imported for ${currentCustomer}`, sale_id, `MIG-${Math.floor(Math.random()*100000)}`, date]
-          );
-        }
-      }
     }
 
     await client.query("COMMIT");
@@ -906,76 +748,6 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
-  }
-});
-
-// --- NEW FINANCIAL ENTITY ENDPOINTS (DEBTS, PAYROLL, PETTY CASH) ---
-app.get("/api/debts-payables", authenticateToken, async (req: any, res: any) => {
-  try {
-    const result = await pool.query("SELECT * FROM debts_payables ORDER BY date DESC, id DESC");
-    res.json(result.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/debts-payables", authenticateToken, async (req: any, res: any) => {
-  const { creditor_name, description, total_amount, paid_amount, balance, date, payment_method, status } = req.body;
-  try {
-    const result = await pool.query(
-      `INSERT INTO debts_payables (creditor_name, description, total_amount, paid_amount, balance, date, payment_method, status) 
-       VALUES ($1, $2, $3, $4, $5, COALESCE($6, CURRENT_TIMESTAMP), $7, $8) RETURNING *`,
-      [creditor_name, description, parseFloat(total_amount || 0), parseFloat(paid_amount || 0), parseFloat(balance || 0), date, payment_method || 'CASH', status || 'pending']
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.get("/api/payroll", authenticateToken, async (req: any, res: any) => {
-  try {
-    const result = await pool.query("SELECT * FROM payroll ORDER BY reporting_date DESC, id DESC");
-    res.json(result.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/payroll", authenticateToken, async (req: any, res: any) => {
-  const { staff_name, month_year, basic, commission, transport, deductions, gross_amount, net_amount, reporting_date } = req.body;
-  try {
-    const result = await pool.query(
-      `INSERT INTO payroll (staff_name, month_year, basic, commission, transport, deductions, gross_amount, net_amount, reporting_date) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, CURRENT_TIMESTAMP)) RETURNING *`,
-      [staff_name, month_year, parseFloat(basic || 0), parseFloat(commission || 0), parseFloat(transport || 0), parseFloat(deductions || 0), parseFloat(gross_amount || 0), parseFloat(net_amount || 0), reporting_date]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.get("/api/petty-cash", authenticateToken, async (req: any, res: any) => {
-  try {
-    const result = await pool.query("SELECT * FROM petty_cash ORDER BY date DESC, id DESC");
-    res.json(result.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/petty-cash", authenticateToken, async (req: any, res: any) => {
-  const { date, type, description, ref_number, amount } = req.body;
-  try {
-    const result = await pool.query(
-      `INSERT INTO petty_cash (date, type, description, ref_number, amount) 
-       VALUES (COALESCE($1, CURRENT_TIMESTAMP), $2, $3, $4, $5) RETURNING *`,
-      [date, type, description, ref_number, parseFloat(amount || 0)]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
   }
 });
 
