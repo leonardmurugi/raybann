@@ -15,7 +15,7 @@ dotenv.config();
 // Static assets middleware moved below app initialization
 
 await dbInit();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET || "terratrack-secret-key-2026";
 
 const app = express();
@@ -41,6 +41,33 @@ const authenticateToken = (req: any, res: any, next: any) => {
     next();
   });
 };
+
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  next();
+};
+
+async function syncSalePaymentTotals(client: any, saleId: number) {
+  const totalPaidRes = await client.query(
+    "SELECT SUM(amount) as total FROM payments WHERE reference_id = $1 AND reference_type = 'sale' AND is_approved = TRUE",
+    [saleId]
+  );
+  const totalPaid = parseFloat(totalPaidRes.rows[0].total || 0);
+  const saleUpdate = await client.query(
+    "UPDATE sales SET paid_amount = $1 WHERE id = $2 RETURNING land_id, total_price",
+    [totalPaid, saleId]
+  );
+  if (saleUpdate.rows.length > 0) {
+    const { land_id, total_price } = saleUpdate.rows[0];
+    const plotStatus = totalPaid >= parseFloat(total_price) ? 'sold' : 'reserved';
+    await client.query(
+      "UPDATE lands SET paid_amount = $1, status = $2 WHERE id = $3",
+      [totalPaid, plotStatus, land_id]
+    );
+  }
+}
 
 // --- AUTH ROUTES ---
 app.post("/api/auth/register", async (req, res) => {
@@ -96,6 +123,40 @@ app.post("/api/properties", authenticateToken, async (req, res) => {
   }
 });
 
+app.put("/api/properties/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, location, total_size, ownership_status, buying_price, amount_paid_to_seller, notes } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE parent_properties
+       SET name = $1, location = $2, total_size = $3, ownership_status = $4, buying_price = $5, amount_paid_to_seller = $6, notes = $7
+       WHERE id = $8 RETURNING *`,
+      [name, location, total_size, ownership_status || 'partial', buying_price || 0, amount_paid_to_seller || 0, notes || null, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Property not found" });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/properties/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const linkedPlots = await pool.query("SELECT COUNT(*)::int AS count FROM lands WHERE parent_property_id = $1", [id]);
+    const linkedCosts = await pool.query("SELECT COUNT(*)::int AS count FROM property_costs WHERE parent_property_id = $1", [id]);
+    if (linkedPlots.rows[0].count > 0 || linkedCosts.rows[0].count > 0) {
+      return res.status(400).json({ error: "Cannot delete property with linked plots or costs. Remove those records first." });
+    }
+
+    const result = await pool.query("DELETE FROM parent_properties WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Property not found" });
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get("/api/lands", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -133,16 +194,36 @@ app.post("/api/lands", authenticateToken, async (req, res) => {
   }
 });
 
-app.put("/api/lands/:id", authenticateToken, async (req, res) => {
+app.put("/api/lands/:id", authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { plot_number, location, size, total_cost, title_deed_status, title_deed_url, status } = req.body;
+  const { parent_property_id, plot_number, location, size, acquisition_type, total_cost, title_deed_status, title_deed_url, status } = req.body;
   try {
     const result = await pool.query(
-      `UPDATE lands SET plot_number = $1, location = $2, size = $3, total_cost = $4, title_deed_status = $5, title_deed_url = $6, status = $7, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8 RETURNING *`,
-      [plot_number, location, size, total_cost, title_deed_status, title_deed_url, status, id]
+      `UPDATE lands
+       SET parent_property_id = $1, plot_number = $2, location = $3, size = $4, acquisition_type = $5, total_cost = $6,
+           title_deed_status = $7, title_deed_url = $8, status = $9, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $10 RETURNING *`,
+      [parent_property_id ? parseInt(parent_property_id) : null, plot_number, location, size, acquisition_type || 'purchase', total_cost || 0, title_deed_status || 'pending', title_deed_url || null, status || 'available', id]
     );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Plot not found" });
     res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/lands/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const linkedSales = await pool.query("SELECT COUNT(*)::int AS count FROM sales WHERE land_id = $1", [id]);
+    const linkedCosts = await pool.query("SELECT COUNT(*)::int AS count FROM property_costs WHERE land_id = $1", [id]);
+    if (linkedSales.rows[0].count > 0 || linkedCosts.rows[0].count > 0) {
+      return res.status(400).json({ error: "Cannot delete plot with linked sales or costs. Remove those records first." });
+    }
+
+    const result = await pool.query("DELETE FROM lands WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Plot not found" });
+    res.status(204).send();
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
@@ -159,7 +240,7 @@ app.get("/api/customers", authenticateToken, async (req, res) => {
 });
 
   // --- INVENTORY ROUTES ---
-  app.get("/api/inventory", authenticateToken, async (req, res) => {
+  app.get("/api/inventory", authenticateToken, requireAdmin, async (req, res) => {
     try {
       const result = await pool.query(`SELECT * FROM inventory ORDER BY item_name ASC`);
       res.json(result.rows);
@@ -168,7 +249,7 @@ app.get("/api/customers", authenticateToken, async (req, res) => {
     }
   });
 
-  app.post("/api/inventory", authenticateToken, async (req, res) => {
+  app.post("/api/inventory", authenticateToken, requireAdmin, async (req, res) => {
     const { item_name, quantity, unit_price, category } = req.body;
     try {
       const result = await pool.query(
@@ -181,7 +262,7 @@ app.get("/api/customers", authenticateToken, async (req, res) => {
     }
   });
 
-  app.put("/api/inventory/:id", authenticateToken, async (req, res) => {
+  app.put("/api/inventory/:id", authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { item_name, quantity, unit_price, category } = req.body;
     try {
@@ -195,7 +276,7 @@ app.get("/api/customers", authenticateToken, async (req, res) => {
     }
   });
 
-  app.delete("/api/inventory/:id", authenticateToken, async (req, res) => {
+  app.delete("/api/inventory/:id", authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
       await pool.query(`DELETE FROM inventory WHERE id = $1`, [id]);
@@ -212,6 +293,37 @@ app.post("/api/customers", authenticateToken, async (req, res) => {
       [name, email, phone, id_number]
     );
     res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put("/api/customers/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, email, phone, id_number } = req.body;
+  try {
+    const result = await pool.query(
+      "UPDATE customers SET name = $1, email = $2, phone = $3, id_number = $4 WHERE id = $5 RETURNING *",
+      [name, email || null, phone, id_number, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Customer not found" });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/customers/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const linkedSales = await pool.query("SELECT COUNT(*)::int AS count FROM sales WHERE customer_id = $1", [id]);
+    const linkedDocs = await pool.query("SELECT COUNT(*)::int AS count FROM documents WHERE customer_id = $1", [id]);
+    if (linkedSales.rows[0].count > 0 || linkedDocs.rows[0].count > 0) {
+      return res.status(400).json({ error: "Cannot delete customer with linked sales or documents." });
+    }
+    const result = await pool.query("DELETE FROM customers WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Customer not found" });
+    res.status(204).send();
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
@@ -316,6 +428,65 @@ app.post("/api/sales", authenticateToken, async (req, res) => {
   }
 });
 
+app.put("/api/sales/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { land_id, customer_id, total_price, paid_amount, is_approved } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT land_id FROM sales WHERE id = $1", [id]);
+    if (existing.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Sale not found" });
+    }
+    const result = await client.query(
+      `UPDATE sales
+       SET land_id = $1, customer_id = $2, total_price = $3, paid_amount = $4, is_approved = $5
+       WHERE id = $6 RETURNING *`,
+      [land_id, customer_id, total_price || 0, paid_amount || 0, !!is_approved, id]
+    );
+    if (Number(existing.rows[0].land_id) !== Number(land_id)) {
+      await client.query("UPDATE lands SET status = 'available', customer_id = NULL, paid_amount = 0 WHERE id = $1", [existing.rows[0].land_id]);
+    }
+    const status = parseFloat(paid_amount || 0) >= parseFloat(total_price || 0) ? 'sold' : 'reserved';
+    await client.query("UPDATE lands SET status = $1, customer_id = $2, paid_amount = $3 WHERE id = $4", [status, customer_id, paid_amount || 0, land_id]);
+    await client.query("COMMIT");
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete("/api/sales/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT land_id FROM sales WHERE id = $1", [id]);
+    if (existing.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Sale not found" });
+    }
+    const linkedPayments = await client.query("SELECT COUNT(*)::int AS count FROM payments WHERE reference_id = $1 AND reference_type = 'sale'", [id]);
+    if (linkedPayments.rows[0].count > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Cannot delete sale with linked payments. Delete the payments first." });
+    }
+    await client.query("DELETE FROM sales WHERE id = $1", [id]);
+    await client.query("UPDATE lands SET status = 'available', customer_id = NULL, paid_amount = 0 WHERE id = $1", [existing.rows[0].land_id]);
+    await client.query("COMMIT");
+    res.status(204).send();
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // --- RECORD NEW PAYMENT (INSTALLMENT) ---
 app.post("/api/payments", authenticateToken, async (req, res) => {
   const { type, amount, method, category, description, reference_id, reference_type, transaction_ref } = req.body;
@@ -339,6 +510,63 @@ app.post("/api/payments", authenticateToken, async (req, res) => {
     res.status(201).json(payment);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+app.put("/api/payments/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { type, amount, method, category, description, reference_id, reference_type, transaction_ref, is_approved } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      `UPDATE payments
+       SET type = $1, amount = $2, method = $3, category = $4, description = $5, reference_id = $6,
+           reference_type = $7, transaction_ref = $8, is_approved = $9
+       WHERE id = $10 RETURNING *`,
+      [type || 'received', amount || 0, method || 'cash', category || 'plot_installment', description || null, reference_id || null, reference_type || null, transaction_ref || null, !!is_approved, id]
+    );
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Payment not found" });
+    }
+    const payment = result.rows[0];
+    if (payment.reference_type === 'sale' && payment.reference_id) {
+      await syncSalePaymentTotals(client, payment.reference_id);
+    }
+    await client.query("COMMIT");
+    res.json(payment);
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete("/api/payments/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT * FROM payments WHERE id = $1", [id]);
+    if (existing.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Payment not found" });
+    }
+    await client.query("DELETE FROM receipts WHERE payment_id = $1", [id]);
+    await client.query("DELETE FROM payments WHERE id = $1", [id]);
+    const payment = existing.rows[0];
+    if (payment.reference_type === 'sale' && payment.reference_id) {
+      await syncSalePaymentTotals(client, payment.reference_id);
+    }
+    await client.query("COMMIT");
+    res.status(204).send();
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -559,6 +787,32 @@ app.post("/api/expenses", authenticateToken, async (req, res) => {
   }
 });
 
+app.put("/api/expenses/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { category, amount, description, is_approved } = req.body;
+  try {
+    const result = await pool.query(
+      "UPDATE expenses SET category = $1, amount = $2, description = $3, is_approved = $4 WHERE id = $5 RETURNING *",
+      [category, amount || 0, description || null, !!is_approved, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Expense not found" });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/expenses/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query("DELETE FROM expenses WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Expense not found" });
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // --- PROPERTY COSTS ROUTES ---
 app.get("/api/property-costs", authenticateToken, async (req, res) => {
   const { startDate, endDate } = req.query;
@@ -601,6 +855,34 @@ app.post("/api/property-costs", authenticateToken, async (req, res) => {
       ]
     );
     res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put("/api/property-costs/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { parent_property_id, land_id, category, amount, description, is_approved } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE property_costs
+       SET parent_property_id = $1, land_id = $2, category = $3, amount = $4, description = $5, is_approved = $6
+       WHERE id = $7 RETURNING *`,
+      [parent_property_id || null, land_id || null, category, amount || 0, description || null, !!is_approved, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Property cost not found" });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/property-costs/:id", authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query("DELETE FROM property_costs WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Property cost not found" });
+    res.status(204).send();
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
@@ -991,6 +1273,36 @@ app.post("/api/debts-payables", authenticateToken, async (req: any, res: any) =>
   }
 });
 
+app.put("/api/debts-payables/:id", authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { creditor_name, description, total_amount, paid_amount, date, payment_method, status } = req.body;
+  const balance = parseFloat(total_amount || 0) - parseFloat(paid_amount || 0);
+  try {
+    const result = await pool.query(
+      `UPDATE debts_payables
+       SET creditor_name = $1, description = $2, total_amount = $3, paid_amount = $4, balance = $5, date = COALESCE($6, date),
+           payment_method = $7, status = $8
+       WHERE id = $9 RETURNING *`,
+      [creditor_name, description, parseFloat(total_amount || 0), parseFloat(paid_amount || 0), balance, date, payment_method || 'CASH', status || (balance <= 0 ? 'cleared' : 'pending'), id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Debt record not found" });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/debts-payables/:id", authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query("DELETE FROM debts_payables WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Debt record not found" });
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get("/api/payroll", authenticateToken, async (req: any, res: any) => {
   try {
     const result = await pool.query("SELECT * FROM payroll ORDER BY reporting_date DESC, id DESC");
@@ -1014,6 +1326,37 @@ app.post("/api/payroll", authenticateToken, async (req: any, res: any) => {
   }
 });
 
+app.put("/api/payroll/:id", authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { staff_name, month_year, basic, commission, transport, deductions, reporting_date } = req.body;
+  const gross = parseFloat(basic || 0) + parseFloat(commission || 0) + parseFloat(transport || 0);
+  const net = gross - parseFloat(deductions || 0);
+  try {
+    const result = await pool.query(
+      `UPDATE payroll
+       SET staff_name = $1, month_year = $2, basic = $3, commission = $4, transport = $5, deductions = $6,
+           gross_amount = $7, net_amount = $8, reporting_date = COALESCE($9, reporting_date)
+       WHERE id = $10 RETURNING *`,
+      [staff_name, month_year, parseFloat(basic || 0), parseFloat(commission || 0), parseFloat(transport || 0), parseFloat(deductions || 0), gross, net, reporting_date, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Payroll record not found" });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/payroll/:id", authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query("DELETE FROM payroll WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Payroll record not found" });
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get("/api/petty-cash", authenticateToken, async (req: any, res: any) => {
   try {
     const result = await pool.query("SELECT * FROM petty_cash ORDER BY date DESC, id DESC");
@@ -1032,6 +1375,33 @@ app.post("/api/petty-cash", authenticateToken, async (req: any, res: any) => {
       [date, type, description, ref_number, parseFloat(amount || 0)]
     );
     res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put("/api/petty-cash/:id", authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { date, type, description, ref_number, amount } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE petty_cash SET date = COALESCE($1, date), type = $2, description = $3, ref_number = $4, amount = $5
+       WHERE id = $6 RETURNING *`,
+      [date, type, description, ref_number, parseFloat(amount || 0), id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Petty cash record not found" });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/petty-cash/:id", authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query("DELETE FROM petty_cash WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Petty cash record not found" });
+    res.status(204).send();
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
@@ -1193,7 +1563,12 @@ app.get("/api/reports/analytics", authenticateToken, async (req, res) => {
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: {
+          port: Number(process.env.VITE_HMR_PORT || PORT + 1)
+        }
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);

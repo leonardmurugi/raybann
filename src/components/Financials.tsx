@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   ArrowUpRight, 
   ArrowDownLeft, 
@@ -13,11 +14,15 @@ import {
   Printer,
   X,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Edit3,
+  Trash2,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Financials() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'customer-payments' | 'office-expenses' | 'property-costs' | 'sales-invoices' | 'payroll' | 'debts-payables' | 'petty-cash'>('customer-payments');
   const [data, setData] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
@@ -41,6 +46,9 @@ export default function Financials() {
   const [isAddPayrollOpen, setAddPayrollOpen] = useState(false);
   const [isAddDebtOpen, setAddDebtOpen] = useState(false);
   const [isAddPettyOpen, setAddPettyOpen] = useState(false);
+  const [isEditRecordOpen, setEditRecordOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({});
 
   // Forms
   const [paymentForm, setPaymentForm] = useState({
@@ -270,6 +278,120 @@ export default function Financials() {
     }
   }
 
+  function openEditRecord(item: any) {
+    setEditingRecord(item);
+    if (activeTab === 'customer-payments') {
+      setEditForm({
+        type: item.type || 'received',
+        amount: Number(item.amount || 0),
+        method: item.method || 'cash',
+        category: item.category || 'plot_installment',
+        description: item.description || '',
+        reference_id: item.reference_id || '',
+        reference_type: item.reference_type || '',
+        transaction_ref: item.transaction_ref || '',
+        is_approved: !!item.is_approved
+      });
+    } else if (activeTab === 'office-expenses') {
+      setEditForm({ category: item.category || 'rent', amount: Number(item.amount || 0), description: item.description || '', is_approved: !!item.is_approved });
+    } else if (activeTab === 'property-costs') {
+      setEditForm({
+        parent_property_id: item.parent_property_id || '',
+        land_id: item.land_id || '',
+        category: item.category || 'survey',
+        amount: Number(item.amount || 0),
+        description: item.description || '',
+        is_approved: !!item.is_approved
+      });
+    } else if (activeTab === 'sales-invoices') {
+      setEditForm({
+        land_id: item.land_id || '',
+        customer_id: item.customer_id || '',
+        total_price: Number(item.total_price || 0),
+        paid_amount: Number(item.paid_amount || 0),
+        is_approved: !!item.is_approved
+      });
+    } else if (activeTab === 'payroll') {
+      setEditForm({
+        staff_name: item.staff_name || '',
+        month_year: item.month_year || '',
+        basic: Number(item.basic || 0),
+        commission: Number(item.commission || 0),
+        transport: Number(item.transport || 0),
+        deductions: Number(item.deductions || 0),
+        reporting_date: item.reporting_date ? new Date(item.reporting_date).toISOString().slice(0, 10) : ''
+      });
+    } else if (activeTab === 'debts-payables') {
+      setEditForm({
+        creditor_name: item.creditor_name || '',
+        description: item.description || '',
+        total_amount: Number(item.total_amount || 0),
+        paid_amount: Number(item.paid_amount || 0),
+        date: item.date ? new Date(item.date).toISOString().slice(0, 10) : '',
+        payment_method: item.payment_method || 'CASH',
+        status: item.status || 'pending'
+      });
+    } else if (activeTab === 'petty-cash') {
+      setEditForm({
+        date: item.date ? new Date(item.date).toISOString().slice(0, 10) : '',
+        type: item.type || 'credit',
+        description: item.description || '',
+        ref_number: item.ref_number || '',
+        amount: Number(item.amount || 0)
+      });
+    }
+    setEditRecordOpen(true);
+  }
+
+  async function handleEditRecord(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const updateApi = getCrudApi(activeTab);
+      await updateApi.update(editingRecord.id, editForm);
+      setEditRecordOpen(false);
+      setEditingRecord(null);
+      loadData();
+      alert('Record updated successfully.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error updating record');
+    }
+  }
+
+  async function handleDeleteRecord(item: any) {
+    if (!window.confirm('Delete this record?')) return;
+    try {
+      const deleteApi = getCrudApi(activeTab);
+      await deleteApi.delete(item.id);
+      loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error deleting record');
+    }
+  }
+
+  function getCrudApi(tab: typeof activeTab): any {
+    if (tab === 'customer-payments') return api.payments;
+    if (tab === 'office-expenses') return api.expenses;
+    if (tab === 'property-costs') return api.propertyCosts;
+    if (tab === 'sales-invoices') return api.sales;
+    if (tab === 'payroll') return api.payroll;
+    if (tab === 'debts-payables') return api.debtsPayables;
+    return api.pettyCash;
+  }
+
+  function AdminRecordActions({ item }: { item: any }) {
+    if (user?.role !== 'admin') return null;
+    return (
+      <div className="flex justify-end gap-2 mt-2">
+        <button onClick={() => openEditRecord(item)} className="p-2 bg-slate-50 text-brand-blue rounded-lg hover:bg-slate-100" aria-label="Edit record">
+          <Edit3 className="w-4 h-4" />
+        </button>
+        <button onClick={() => handleDeleteRecord(item)} className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100" aria-label="Delete record">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
   // Calculate totals for quick overview cards
   const balanceOutstanding = sales.reduce((acc, sale) => acc + (parseFloat(sale.total_price) - parseFloat(sale.paid_amount)), 0);
   const totalCollections = data.filter(d => d.type === 'received' && d.is_approved).reduce((acc, d) => acc + parseFloat(d.amount), 0);
@@ -434,6 +556,7 @@ export default function Financials() {
                         >
                           Generate Invoice
                         </button>
+                        <AdminRecordActions item={sale} />
                       </div>
                     </div>
                   ))
@@ -459,6 +582,7 @@ export default function Financials() {
                       <div className="text-right">
                         <p className="font-display font-bold text-[13px] text-slate-800">KES {parseFloat(item.net_amount || 0).toLocaleString()}</p>
                         <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest mt-0.5">Deductions: -KES {parseFloat(item.deductions || 0).toLocaleString()}</p>
+                        <AdminRecordActions item={item} />
                       </div>
                     </div>
                   ))
@@ -490,6 +614,7 @@ export default function Financials() {
                         <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
                           Total: KES {parseFloat(item.total_amount || 0).toLocaleString()} • Paid: KES {parseFloat(item.paid_amount || 0).toLocaleString()}
                         </p>
+                        <AdminRecordActions item={item} />
                       </div>
                     </div>
                   ))
@@ -522,6 +647,7 @@ export default function Financials() {
                             {new Date(item.date).toLocaleDateString()}
                           </p>
                         )}
+                        <AdminRecordActions item={item} />
                       </div>
                     </div>
                   ))
@@ -578,6 +704,7 @@ export default function Financials() {
                             <FileText className="w-3 h-3" /> View Receipt
                           </button>
                         )}
+                        <AdminRecordActions item={item} />
                       </div>
                     </div>
                   ))
@@ -1131,6 +1258,84 @@ export default function Financials() {
                 <div className="flex gap-4 pt-4">
                   <button type="button" onClick={() => setAddPettyOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
                   <button type="submit" className="flex-1 py-4 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20">Record Entry</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Admin Edit Record Modal */}
+      <AnimatePresence>
+        {isEditRecordOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditRecordOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+              <header className="mb-6 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-brand-orange tracking-widest mb-1">Admin Editor</p>
+                  <h2 className="text-2xl font-display font-bold tracking-tighter text-brand-blue">Edit Record</h2>
+                </div>
+                <button onClick={() => setEditRecordOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </header>
+
+              <form onSubmit={handleEditRecord} className="space-y-4">
+                {Object.entries(editForm).map(([key, value]) => (
+                  <div key={key} className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{key.replace(/_/g, ' ')}</label>
+                    {typeof value === 'boolean' ? (
+                      <select
+                        value={value ? 'true' : 'false'}
+                        onChange={e => setEditForm({ ...editForm, [key]: e.target.value === 'true' })}
+                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                      >
+                        <option value="false">No</option>
+                        <option value="true">Yes</option>
+                      </select>
+                    ) : key === 'type' && activeTab === 'petty-cash' ? (
+                      <select
+                        value={String(value)}
+                        onChange={e => setEditForm({ ...editForm, [key]: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                      >
+                        <option value="credit">Payout / Credit</option>
+                        <option value="debit">Deposit / Debit</option>
+                      </select>
+                    ) : key === 'method' || key === 'payment_method' ? (
+                      <select
+                        value={String(value)}
+                        onChange={e => setEditForm({ ...editForm, [key]: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                      >
+                        <option value="cash">Cash</option>
+                        <option value="mpesa">M-Pesa</option>
+                        <option value="bank">Bank</option>
+                        <option value="CASH">CASH</option>
+                        <option value="MPESA">MPESA</option>
+                        <option value="BANK">BANK</option>
+                      </select>
+                    ) : (
+                      <input
+                        type={key.includes('date') ? 'date' : typeof value === 'number' || key.endsWith('_id') || key.includes('amount') || key.includes('price') || ['basic', 'commission', 'transport', 'deductions'].includes(key) ? 'number' : 'text'}
+                        value={String(value ?? '')}
+                        onChange={e => setEditForm({
+                          ...editForm,
+                          [key]: e.target.type === 'number' ? Number(e.target.value || 0) : e.target.value
+                        })}
+                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setEditRecordOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
+                  <button type="submit" className="flex-1 py-4 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20 flex items-center justify-center gap-2">
+                    <Save className="w-4 h-4" />
+                    Save
+                  </button>
                 </div>
               </form>
             </motion.div>

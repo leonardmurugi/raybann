@@ -190,11 +190,24 @@ export default function Reports() {
     const { props, cust, lands: plotList, s: salesList, p: pList, ex: eList, pc: pcList, app, payroll = [], debts = [], pettyCash = [] } = datasets;
     
     // Date Helpers
+    const money = (value: any) => {
+      if (value === null || value === undefined || value === '') return 0;
+      const normalized = String(value).replace(/[^0-9.-]/g, '');
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const parseDateTime = (dateStr: string) => {
+      const parsed = new Date(dateStr).getTime();
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
     const isWithinDates = (dateStr: string) => {
       if (!dateStr) return true;
-      const d = new Date(dateStr).getTime();
+      const d = parseDateTime(dateStr);
+      if (d === null) return true;
       const s = start ? new Date(start).getTime() : -Infinity;
-      const e = end ? new Date(end).getTime() : Infinity;
+      const e = end ? new Date(`${end}T23:59:59.999`).getTime() : Infinity;
       return d >= s && d <= e;
     };
 
@@ -228,9 +241,9 @@ export default function Reports() {
       );
 
       // Totals
-      const totalRevenue = filteredPayments.reduce((acc, p) => acc + parseFloat(p.amount), 0);
-      const totalOpEx = filteredExpenses.reduce((acc, e) => acc + parseFloat(e.amount), 0);
-      const totalPropEx = filteredPropertyCosts.reduce((acc, pc) => acc + parseFloat(pc.amount), 0);
+      const totalRevenue = filteredPayments.reduce((acc, p) => acc + money(p.amount), 0);
+      const totalOpEx = filteredExpenses.reduce((acc, e) => acc + money(e.amount), 0);
+      const totalPropEx = filteredPropertyCosts.reduce((acc, pc) => acc + money(pc.amount), 0);
       const netProfit = totalRevenue - (totalOpEx + totalPropEx);
 
       result.metrics = [
@@ -249,7 +262,7 @@ export default function Reports() {
         category: p.category.replace('_', ' '),
         type: 'Collection (IN)',
         status: p.is_approved ? 'Approved' : 'Pending',
-        amount: parseFloat(p.amount),
+        amount: money(p.amount),
         isCredit: true
       }));
 
@@ -259,7 +272,7 @@ export default function Reports() {
         category: e.category.replace('_', ' '),
         type: 'Operational Cost (OUT)',
         status: e.is_approved ? 'Approved' : 'Pending',
-        amount: -parseFloat(e.amount),
+        amount: -money(e.amount),
         isCredit: false
       }));
 
@@ -269,7 +282,7 @@ export default function Reports() {
         category: pc.category.replace('_', ' '),
         type: 'Property Addition (OUT)',
         status: pc.is_approved ? 'Approved' : 'Pending',
-        amount: -parseFloat(pc.amount),
+        amount: -money(pc.amount),
         isCredit: false
       }));
 
@@ -309,8 +322,8 @@ export default function Reports() {
         });
       }
 
-      const totalValue = filtered.reduce((acc, p) => acc + parseFloat(p.amount), 0);
-      const approvedVal = filtered.filter(p => p.is_approved).reduce((acc, p) => acc + parseFloat(p.amount), 0);
+      const totalValue = filtered.reduce((acc, p) => acc + money(p.amount), 0);
+      const approvedVal = filtered.filter(p => p.is_approved).reduce((acc, p) => acc + money(p.amount), 0);
       const pendingVal = totalValue - approvedVal;
 
       result.metrics = [
@@ -328,7 +341,7 @@ export default function Reports() {
         p.transaction_ref || 'N/A',
         <span className="capitalize font-medium">{p.method}</span>,
         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${p.is_approved ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>{p.is_approved ? 'Approved':'Pending'}</span>,
-        <span className="font-mono font-bold text-emerald-600">{parseFloat(p.amount).toLocaleString()}</span>
+        <span className="font-mono font-bold text-emerald-600">{money(p.amount).toLocaleString()}</span>
       ]);
 
       result.totals = {
@@ -344,9 +357,9 @@ export default function Reports() {
         (approvalStatus === 'all' ? true : (approvalStatus === 'approved' ? item.is_approved : !item.is_approved))
       );
 
-      const totalValue = filtered.reduce((acc, e) => acc + parseFloat(e.amount), 0);
-      const salariesTotal = filtered.filter(e => e.category === 'salary').reduce((acc, e) => acc + parseFloat(e.amount), 0);
-      const rentTotal = filtered.filter(e => e.category === 'rent').reduce((acc, e) => acc + parseFloat(e.amount), 0);
+      const totalValue = filtered.reduce((acc, e) => acc + money(e.amount), 0);
+      const salariesTotal = filtered.filter(e => e.category === 'salary').reduce((acc, e) => acc + money(e.amount), 0);
+      const rentTotal = filtered.filter(e => e.category === 'rent').reduce((acc, e) => acc + money(e.amount), 0);
 
       result.metrics = [
         { label: 'Total Operating Expenses', value: `KES ${totalValue.toLocaleString()}`, color: 'text-rose-600' },
@@ -362,7 +375,7 @@ export default function Reports() {
         e.operator_name || 'System Operator',
         <p className="max-w-xs truncate text-xs text-slate-500 italic">"{e.description || 'N/A'}"</p>,
         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${e.is_approved ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>{e.is_approved ? 'Approved':'Pending'}</span>,
-        <span className="font-mono font-bold text-rose-600">{parseFloat(e.amount).toLocaleString()}</span>
+        <span className="font-mono font-bold text-rose-600">{money(e.amount).toLocaleString()}</span>
       ]);
 
       result.totals = {
@@ -388,8 +401,8 @@ export default function Reports() {
       const reservedCount = filteredPlots.filter(l => l.status === 'reserved').length;
       const availableCount = filteredPlots.filter(l => l.status === 'available').length;
 
-      const totalValuation = filteredPlots.reduce((acc, l) => acc + parseFloat(l.total_cost), 0);
-      const realizedSales = filteredPlots.reduce((acc, l) => acc + parseFloat(l.paid_amount), 0);
+      const totalValuation = filteredPlots.reduce((acc, l) => acc + money(l.total_cost), 0);
+      const realizedSales = filteredPlots.reduce((acc, l) => acc + money(l.paid_amount), 0);
       const outstandingDebts = totalValuation - realizedSales;
 
       result.metrics = [
@@ -401,7 +414,7 @@ export default function Reports() {
 
       result.headers = ['Plot Ref', 'Size Dimensions', 'Acquisition Mode', 'Deed Status', 'Plot Status', 'Unit Pricing (KES)', 'Amount Received (KES)', 'Balance (KES)'];
       result.rows = filteredPlots.map(l => {
-        const balance = parseFloat(l.total_cost) - parseFloat(l.paid_amount);
+        const balance = money(l.total_cost) - money(l.paid_amount);
         return [
           l.plot_number,
           l.size,
@@ -412,8 +425,8 @@ export default function Reports() {
             l.status === 'reserved' ? 'bg-brand-orange/5 text-brand-orange border border-brand-orange/10' :
             'bg-sky-50 text-sky-600 border border-sky-100'
           }`}>{l.status}</span>,
-          <span className="font-mono font-medium">{parseFloat(l.total_cost).toLocaleString()}</span>,
-          <span className="font-mono font-bold text-emerald-600">{parseFloat(l.paid_amount).toLocaleString()}</span>,
+          <span className="font-mono font-medium">{money(l.total_cost).toLocaleString()}</span>,
+          <span className="font-mono font-bold text-emerald-600">{money(l.paid_amount).toLocaleString()}</span>,
           <span className={`font-mono font-bold ${balance > 0 ? 'text-brand-orange':'text-slate-300'}`}>{balance.toLocaleString()}</span>
         ];
       });
@@ -435,8 +448,8 @@ export default function Reports() {
         });
       }
 
-      const totalContracts = filteredSales.reduce((acc, s) => acc + parseFloat(s.total_price), 0);
-      const totalPaidSales = filteredSales.reduce((acc, s) => acc + parseFloat(s.paid_amount), 0);
+      const totalContracts = filteredSales.reduce((acc, s) => acc + money(s.total_price), 0);
+      const totalPaidSales = filteredSales.reduce((acc, s) => acc + money(s.paid_amount), 0);
       const outstandingBalance = totalContracts - totalPaidSales;
 
       result.metrics = [
@@ -448,14 +461,14 @@ export default function Reports() {
 
       result.headers = ['Date Signed', 'Customer Name', 'Plot Purchased', 'Agreement Status', 'Contract Price', 'Paid-to-date (KES)', 'Net Balance (KES)'];
       result.rows = filteredSales.map(s => {
-        const balance = parseFloat(s.total_price) - parseFloat(s.paid_amount);
+        const balance = money(s.total_price) - money(s.paid_amount);
         return [
           new Date(s.date).toLocaleDateString(),
           <p className="font-semibold text-brand-blue">{s.customer_name}</p>,
           `Plot ${s.plot_number || 'N/A'}`,
           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${s.is_approved ? 'bg-emerald-50 text-emerald-600 border border-emerald-100':'bg-amber-50 text-amber-600 border border-amber-100'}`}>{s.is_approved ? 'Approved':'Pending Review'}</span>,
-          <span className="font-mono font-medium">{parseFloat(s.total_price).toLocaleString()}</span>,
-          <span className="font-mono font-bold text-emerald-600">{parseFloat(s.paid_amount).toLocaleString()}</span>,
+          <span className="font-mono font-medium">{money(s.total_price).toLocaleString()}</span>,
+          <span className="font-mono font-bold text-emerald-600">{money(s.paid_amount).toLocaleString()}</span>,
           <span className="font-mono font-bold text-brand-orange">{balance.toLocaleString()}</span>
         ];
       });
@@ -471,9 +484,9 @@ export default function Reports() {
       const { payments = [], expenses = [], propertyCosts = [] } = app;
 
       const totalValue = 
-        payments.reduce((acc: number, p: any) => acc + parseFloat(p.amount), 0) +
-        expenses.reduce((acc: number, e: any) => acc + parseFloat(e.amount), 0) +
-        propertyCosts.reduce((acc: number, pc: any) => acc + parseFloat(pc.amount), 0);
+        payments.reduce((acc: number, p: any) => acc + money(p.amount), 0) +
+        expenses.reduce((acc: number, e: any) => acc + money(e.amount), 0) +
+        propertyCosts.reduce((acc: number, pc: any) => acc + money(pc.amount), 0);
 
       result.metrics = [
         { label: 'Payments Pending Verification', value: payments.length, color: 'text-brand-orange' },
@@ -491,7 +504,7 @@ export default function Reports() {
           new Date(p.date || new Date()).toLocaleDateString(),
           p.receipt_number || `RCP-${p.id}`,
           `Deposit/Installment by Client: ${p.customer_name || 'Walk-In'} (via ${p.method})`,
-          <span className="font-mono font-bold text-amber-600">{parseFloat(p.amount).toLocaleString()}</span>
+          <span className="font-mono font-bold text-amber-600">{money(p.amount).toLocaleString()}</span>
         ]);
       });
 
@@ -501,7 +514,7 @@ export default function Reports() {
           new Date(e.date || new Date()).toLocaleDateString(),
           `OP-${e.id}`,
           `Company operational cost: ${e.category} | "${e.description || 'N/A'}"`,
-          <span className="font-mono font-bold text-rose-500">{parseFloat(e.amount).toLocaleString()}</span>
+          <span className="font-mono font-bold text-rose-500">{money(e.amount).toLocaleString()}</span>
         ]);
       });
 
@@ -511,7 +524,7 @@ export default function Reports() {
           new Date(pc.date || new Date()).toLocaleDateString(),
           `SUB-${pc.id}`,
           `Capital project add cost: ${pc.category} | Property: ${pc.property_name || 'N/A'}`,
-          <span className="font-mono font-bold text-amber-600">{parseFloat(pc.amount).toLocaleString()}</span>
+          <span className="font-mono font-bold text-amber-600">{money(pc.amount).toLocaleString()}</span>
         ]);
       });
 
@@ -523,14 +536,14 @@ export default function Reports() {
     } else if (type === 'payroll-hr') {
       result.reportTitle = 'EMPLOYEE PAYROLL AND HUMAN RESOURCES STATEMENT';
       const filtered = payroll.filter(item => isWithinDates(item.reporting_date || item.date));
-      const totalBasic = filtered.reduce((acc, p) => acc + (parseFloat(p.basic) || 0), 0);
-      const totalCommissions = filtered.reduce((acc, p) => acc + (parseFloat(p.commission) || 0), 0);
-      const totalDeductions = filtered.reduce((acc, p) => acc + (parseFloat(p.deductions) || 0), 0);
+      const totalBasic = filtered.reduce((acc, p) => acc + (money(p.basic) || 0), 0);
+      const totalCommissions = filtered.reduce((acc, p) => acc + (money(p.commission) || 0), 0);
+      const totalDeductions = filtered.reduce((acc, p) => acc + (money(p.deductions) || 0), 0);
       const totalNet = filtered.reduce((acc, p) => {
-        const basic = parseFloat(p.basic) || 0;
-        const comm = parseFloat(p.commission) || 0;
-        const trans = parseFloat(p.transport) || 0;
-        const ded = parseFloat(p.deductions) || 0;
+        const basic = money(p.basic) || 0;
+        const comm = money(p.commission) || 0;
+        const trans = money(p.transport) || 0;
+        const ded = money(p.deductions) || 0;
         return acc + (basic + comm + trans - ded);
       }, 0);
 
@@ -543,10 +556,10 @@ export default function Reports() {
 
       result.headers = ['Date Paid', 'Employee Name', 'Month / Year Period', 'Basic Pay (KES)', 'Commission (KES)', 'Deductions (KES)', 'Net Direct Payout (KES)'];
       result.rows = filtered.map(p => {
-        const basic = parseFloat(p.basic) || 0;
-        const comm = parseFloat(p.commission) || 0;
-        const trans = parseFloat(p.transport) || 0;
-        const ded = parseFloat(p.deductions) || 0;
+        const basic = money(p.basic) || 0;
+        const comm = money(p.commission) || 0;
+        const trans = money(p.transport) || 0;
+        const ded = money(p.deductions) || 0;
         const net = basic + comm + trans - ded;
         return [
           new Date(p.reporting_date || p.date || new Date()).toLocaleDateString(),
@@ -567,8 +580,8 @@ export default function Reports() {
     } else if (type === 'vendor-debts') {
       result.reportTitle = 'VENDOR LIABILITIES & OUTSTANDING ACCOUNTS PALYABLE STATEMENT';
       const filtered = debts.filter(item => isWithinDates(item.date));
-      const totalLiabilities = filtered.reduce((acc, d) => acc + (parseFloat(d.total_amount) || 0), 0);
-      const totalPaid = filtered.reduce((acc, d) => acc + (parseFloat(d.paid_amount) || 0), 0);
+      const totalLiabilities = filtered.reduce((acc, d) => acc + (money(d.total_amount) || 0), 0);
+      const totalPaid = filtered.reduce((acc, d) => acc + (money(d.paid_amount) || 0), 0);
       const remainingBalance = totalLiabilities - totalPaid;
 
       result.metrics = [
@@ -580,8 +593,8 @@ export default function Reports() {
 
       result.headers = ['Log Date', 'Vendor / Creditor Name', 'Task Reference', 'Billing Amount (KES)', 'Amount Settled (KES)', 'Payment Method', 'Balance Due (KES)'];
       result.rows = filtered.map(d => {
-        const total = parseFloat(d.total_amount) || 0;
-        const paid = parseFloat(d.paid_amount) || 0;
+        const total = money(d.total_amount) || 0;
+        const paid = money(d.paid_amount) || 0;
         const balance = total - paid;
         return [
           new Date(d.date || new Date()).toLocaleDateString(),
@@ -602,8 +615,8 @@ export default function Reports() {
     } else if (type === 'petty-cash-ledger') {
       result.reportTitle = 'OFFICE PETTY CASH GENERAL LEDGER ACCOUNT BOOK';
       const filtered = pettyCash.filter(item => isWithinDates(item.date));
-      const totalDebits = filtered.filter(p => p.type === 'debit').reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
-      const totalCredits = filtered.filter(p => p.type === 'credit').reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+      const totalDebits = filtered.filter(p => p.type === 'debit').reduce((acc, p) => acc + (money(p.amount) || 0), 0);
+      const totalCredits = filtered.filter(p => p.type === 'credit').reduce((acc, p) => acc + (money(p.amount) || 0), 0);
       const netCashBalance = totalDebits - totalCredits;
 
       result.metrics = [
@@ -615,7 +628,7 @@ export default function Reports() {
 
       result.headers = ['Entry Date', 'Voucher / Ref No', 'Description Item', 'Type', 'Debit (Deposit KES)', 'Credit (Payout KES)'];
       result.rows = filtered.map(p => {
-        const amt = parseFloat(p.amount) || 0;
+        const amt = money(p.amount) || 0;
         const isDebit = p.type === 'debit';
         return [
           new Date(p.date || new Date()).toLocaleDateString(),

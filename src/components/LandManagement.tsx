@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   Plus, 
   Search, 
@@ -12,17 +13,18 @@ import {
   Upload,
   X,
   CheckCircle2,
-  DollarSign,
-  AlertCircle
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function LandManagement() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [lands, setLands] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [tab, setTab] = useState<'properties' | 'plots'>('properties');
   const [isAddPropOpen, setAddPropOpen] = useState(false);
+  const [isEditPropOpen, setEditPropOpen] = useState(false);
   const [isAddPlotOpen, setAddPlotOpen] = useState(false);
   const [isManageCostsOpen, setManageCostsOpen] = useState(false);
   const [isEditPlotOpen, setEditPlotOpen] = useState(false);
@@ -46,7 +48,8 @@ export default function LandManagement() {
     total_size: '',
     buying_price: 0,
     amount_paid_to_seller: 0,
-    ownership_status: 'partial'
+    ownership_status: 'partial',
+    notes: ''
   });
 
   const [plotForm, setPlotForm] = useState({
@@ -61,9 +64,11 @@ export default function LandManagement() {
   });
 
   const [editPlotForm, setEditPlotForm] = useState({
+    parent_property_id: '',
     plot_number: '',
     location: '',
     size: '',
+    acquisition_type: 'purchase',
     total_cost: 0,
     title_deed_status: 'pending',
     title_deed_url: '',
@@ -100,11 +105,41 @@ export default function LandManagement() {
     try {
       await api.properties.create(propForm);
       setAddPropOpen(false);
-      setPropForm({ name: '', location: '', total_size: '', buying_price: 0, amount_paid_to_seller: 0, ownership_status: 'partial' });
+      setPropForm({ name: '', location: '', total_size: '', buying_price: 0, amount_paid_to_seller: 0, ownership_status: 'partial', notes: '' });
       loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error creating property');
     }
+  }
+
+  async function handleEditPropSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await api.properties.update(selectedProperty.id, propForm);
+      setEditPropOpen(false);
+      loadData();
+      alert('Property updated successfully!');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error updating property');
+    }
+  }
+
+  function openEditProperty(prop: any) {
+    setSelectedProperty(prop);
+    setPropForm({
+      name: prop.name || '',
+      location: prop.location || '',
+      total_size: prop.total_size || '',
+      buying_price: Number(prop.buying_price || 0),
+      amount_paid_to_seller: Number(prop.amount_paid_to_seller || 0),
+      ownership_status: prop.ownership_status || 'partial',
+      notes: prop.notes || ''
+    });
+    setEditPropOpen(true);
+  }
+
+  function resetPropertyForm() {
+    setPropForm({ name: '', location: '', total_size: '', buying_price: 0, amount_paid_to_seller: 0, ownership_status: 'partial', notes: '' });
   }
 
   async function handlePlotSubmit(e: React.FormEvent) {
@@ -146,6 +181,26 @@ export default function LandManagement() {
     }
   }
 
+  async function handleDeleteProperty(prop: any) {
+    if (!window.confirm(`Delete ${prop.name}?`)) return;
+    try {
+      await api.properties.delete(prop.id);
+      loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error deleting property');
+    }
+  }
+
+  async function handleDeletePlot(plot: any) {
+    if (!window.confirm(`Delete plot ${plot.plot_number}?`)) return;
+    try {
+      await api.lands.delete(plot.id);
+      loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error deleting plot');
+    }
+  }
+
   // Filter properties and plots
   const filteredProperties = properties.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -184,7 +239,14 @@ export default function LandManagement() {
             Bulk Import
           </button>
           <button 
-            onClick={() => tab === 'properties' ? setAddPropOpen(true) : setAddPlotOpen(true)}
+            onClick={() => {
+              if (tab === 'properties') {
+                resetPropertyForm();
+                setAddPropOpen(true);
+              } else {
+                setAddPlotOpen(true);
+              }
+            }}
             className="flex items-center gap-2 px-5 py-2.5 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all hover:scale-105 shadow-lg shadow-brand-orange/20"
           >
             <Plus className="w-4 h-4" />
@@ -275,6 +337,24 @@ export default function LandManagement() {
                    >
                       Manage Costs
                    </button>
+                   {user?.role === 'admin' && (
+                     <div className="flex gap-2">
+                       <button
+                         onClick={() => openEditProperty(prop)}
+                         className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors text-brand-blue"
+                         aria-label="Edit property"
+                       >
+                         <Edit3 className="w-4 h-4" />
+                       </button>
+                       <button
+                         onClick={() => handleDeleteProperty(prop)}
+                         className="p-4 bg-rose-50 rounded-2xl hover:bg-rose-100 transition-colors text-rose-600"
+                         aria-label="Delete property"
+                       >
+                         <Trash2 className="w-4 h-4" />
+                       </button>
+                     </div>
+                   )}
                    <div className="text-[10px] font-semibold text-slate-400 italic">
                       Created: {new Date(prop.created_at).toLocaleDateString()}
                    </div>
@@ -330,24 +410,38 @@ export default function LandManagement() {
                       <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                       Deed {land.title_deed_status}
                    </span>
-                   <button 
-                     onClick={() => {
-                       setSelectedPlot(land);
-                       setEditPlotForm({
-                         plot_number: land.plot_number,
-                         location: land.location,
-                         size: land.size,
-                         total_cost: parseInt(land.total_cost),
-                         title_deed_status: land.title_deed_status,
-                         title_deed_url: land.title_deed_url || '',
-                         status: land.status
-                       });
-                       setEditPlotOpen(true);
-                     }}
-                     className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors text-brand-blue"
-                   >
-                      <Edit3 className="w-4 h-4" />
-                   </button>
+                   {user?.role === 'admin' && (
+                     <div className="flex gap-2">
+                       <button 
+                         onClick={() => {
+                           setSelectedPlot(land);
+                           setEditPlotForm({
+                             parent_property_id: land.parent_property_id ? String(land.parent_property_id) : '',
+                             plot_number: land.plot_number,
+                             location: land.location,
+                             size: land.size,
+                             acquisition_type: land.acquisition_type || 'purchase',
+                             total_cost: parseInt(land.total_cost),
+                             title_deed_status: land.title_deed_status,
+                             title_deed_url: land.title_deed_url || '',
+                             status: land.status
+                           });
+                           setEditPlotOpen(true);
+                         }}
+                         className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors text-brand-blue"
+                         aria-label="Edit plot"
+                       >
+                          <Edit3 className="w-4 h-4" />
+                       </button>
+                       <button
+                         onClick={() => handleDeletePlot(land)}
+                         className="p-3 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors text-rose-600"
+                         aria-label="Delete plot"
+                       >
+                         <Trash2 className="w-4 h-4" />
+                       </button>
+                     </div>
+                   )}
                 </div>
               </motion.div>
             ))}
@@ -376,9 +470,68 @@ export default function LandManagement() {
                   <Input label="Total Size" value={propForm.total_size} onChange={v => setPropForm({...propForm, total_size: v})} placeholder="e.g. 50 Acres" />
                   <Input label="Buy Price (KES)" type="number" value={String(propForm.buying_price)} onChange={v => setPropForm({...propForm, buying_price: parseInt(v)})} placeholder="10000000" />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Paid To Seller (KES)" type="number" value={String(propForm.amount_paid_to_seller)} onChange={v => setPropForm({...propForm, amount_paid_to_seller: parseInt(v)})} placeholder="0" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ownership Status</label>
+                    <select
+                      value={propForm.ownership_status}
+                      onChange={e => setPropForm({...propForm, ownership_status: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none text-brand-blue"
+                    >
+                      <option value="partial">Partial</option>
+                      <option value="fully_owned">Fully Owned</option>
+                    </select>
+                  </div>
+                </div>
                 <div className="flex gap-4 pt-4">
                   <button type="button" onClick={() => setAddPropOpen(false)} className="flex-1 py-5 bg-black/5 text-black/60 rounded-2xl font-bold text-sm">Cancel</button>
                   <button type="submit" className="flex-1 py-5 bg-[#1A1A1A] text-white rounded-2xl font-bold text-sm">Record Acquisition</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Parent Property Modal */}
+      <AnimatePresence>
+        {isEditPropOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditPropOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl font-bold tracking-tighter text-brand-blue">Edit Land</h2>
+                <button onClick={() => setEditPropOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                  <X className="w-6 h-6 text-slate-450" />
+                </button>
+              </div>
+              <form onSubmit={handleEditPropSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Property Name" value={propForm.name} onChange={v => setPropForm({...propForm, name: v})} placeholder="e.g. Kitengela Phase 2" />
+                  <Input label="Location" value={propForm.location} onChange={v => setPropForm({...propForm, location: v})} placeholder="e.g. Kajiado" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Total Size" value={propForm.total_size} onChange={v => setPropForm({...propForm, total_size: v})} placeholder="e.g. 50 Acres" />
+                  <Input label="Buy Price (KES)" type="number" value={String(propForm.buying_price)} onChange={v => setPropForm({...propForm, buying_price: parseInt(v)})} placeholder="10000000" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Paid To Seller (KES)" type="number" value={String(propForm.amount_paid_to_seller)} onChange={v => setPropForm({...propForm, amount_paid_to_seller: parseInt(v)})} placeholder="0" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ownership Status</label>
+                    <select
+                      value={propForm.ownership_status}
+                      onChange={e => setPropForm({...propForm, ownership_status: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none text-brand-blue"
+                    >
+                      <option value="partial">Partial</option>
+                      <option value="fully_owned">Fully Owned</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setEditPropOpen(false)} className="flex-1 py-5 bg-black/5 text-black/60 rounded-2xl font-bold text-sm">Cancel</button>
+                  <button type="submit" className="flex-1 py-5 bg-brand-orange text-white rounded-2xl font-bold text-sm">Update Land</button>
                 </div>
               </form>
             </motion.div>
@@ -604,6 +757,17 @@ export default function LandManagement() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Target Property</label>
+                    <select 
+                      value={editPlotForm.parent_property_id}
+                      onChange={e => setEditPlotForm({...editPlotForm, parent_property_id: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none text-brand-blue"
+                    >
+                      <option value="">Independent Plot</option>
+                      {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Plot Status</label>
                     <select 

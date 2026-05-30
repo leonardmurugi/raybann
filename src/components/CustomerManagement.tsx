@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
   Phone, 
@@ -8,16 +9,20 @@ import {
   Plus, 
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function CustomerManagement() {
+  const { user } = useAuth();
   const [customers, setCustomers] = useState<any[]>([]);
   const [lands, setLands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaleOpen, setSaleOpen] = useState(false);
   const [isAddClientOpen, setAddClientOpen] = useState(false);
+  const [isEditClientOpen, setEditClientOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -64,6 +69,40 @@ export default function CustomerManagement() {
       alert('Client registered successfully!');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error adding client');
+    }
+  }
+
+  function openEditClient(customer: any) {
+    setSelectedCustomer(customer);
+    setClientForm({
+      name: customer.name || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      id_number: customer.id_number || ''
+    });
+    setEditClientOpen(true);
+  }
+
+  async function handleEditClient(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await api.customers.update(selectedCustomer.id, clientForm);
+      setEditClientOpen(false);
+      setClientForm({ name: '', email: '', phone: '', id_number: '' });
+      load();
+      alert('Client updated successfully!');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error updating client');
+    }
+  }
+
+  async function handleDeleteClient(customer: any) {
+    if (!window.confirm(`Delete ${customer.name}?`)) return;
+    try {
+      await api.customers.delete(customer.id);
+      load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error deleting client');
     }
   }
 
@@ -169,12 +208,24 @@ export default function CustomerManagement() {
                       <span className="px-3 py-1 bg-slate-50 rounded-lg text-[11px] font-mono font-semibold text-slate-500 border border-slate-100">{customer.id_number}</span>
                     </td>
                     <td className="px-8 py-5 text-right">
-                       <button 
-                         onClick={() => { setSelectedCustomer(customer); setSaleOpen(true); }}
-                         className="px-4 py-2 border border-brand-blue/10 text-brand-blue rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-blue hover:text-white transition-all shadow-sm"
-                       >
-                         Record Sale
-                       </button>
+                       <div className="flex justify-end gap-2">
+                         <button 
+                           onClick={() => { setSelectedCustomer(customer); setSaleOpen(true); }}
+                           className="px-4 py-2 border border-brand-blue/10 text-brand-blue rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-blue hover:text-white transition-all shadow-sm"
+                         >
+                           Record Sale
+                         </button>
+                         {user?.role === 'admin' && (
+                           <>
+                             <button onClick={() => openEditClient(customer)} className="p-2 bg-slate-50 text-brand-blue rounded-lg hover:bg-slate-100" aria-label="Edit client">
+                               <Edit3 className="w-4 h-4" />
+                             </button>
+                             <button onClick={() => handleDeleteClient(customer)} className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100" aria-label="Delete client">
+                               <Trash2 className="w-4 h-4" />
+                             </button>
+                           </>
+                         )}
+                       </div>
                     </td>
                   </tr>
                 ))
@@ -252,6 +303,51 @@ export default function CustomerManagement() {
                 <div className="flex gap-4 pt-4">
                   <button type="button" onClick={() => setAddClientOpen(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
                   <button type="submit" className="flex-1 py-5 bg-brand-orange text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20 hover:scale-[1.02] transition-transform">Register Client</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Client Modal */}
+      <AnimatePresence>
+        {isEditClientOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditClientOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100">
+              <header className="mb-8 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-brand-orange tracking-widest mb-1">CRM Database</p>
+                  <h2 className="text-3xl font-display font-bold tracking-tighter text-brand-blue">Edit Client</h2>
+                </div>
+                <button onClick={() => setEditClientOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </header>
+
+              <form onSubmit={handleEditClient} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Full Name</label>
+                  <input required type="text" value={clientForm.name} onChange={e => setClientForm({...clientForm, name: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">ID / Passport Number</label>
+                  <input required type="text" value={clientForm.id_number} onChange={e => setClientForm({...clientForm, id_number: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Phone Number</label>
+                    <input required type="text" value={clientForm.phone} onChange={e => setClientForm({...clientForm, phone: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Address</label>
+                    <input type="email" value={clientForm.email} onChange={e => setClientForm({...clientForm, email: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue" />
+                  </div>
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setEditClientOpen(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
+                  <button type="submit" className="flex-1 py-5 bg-brand-orange text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20">Update Client</button>
                 </div>
               </form>
             </motion.div>

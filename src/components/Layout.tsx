@@ -14,7 +14,8 @@ import {
   Building2,
   FileSpreadsheet,
   PieChart,
-  Receipt
+  Receipt,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -41,6 +42,7 @@ export default function Layout() {
   ];
 
   if (user?.role === 'admin') {
+    navItems.push({ name: 'Admin Stock', path: '/inventory-admin', icon: Package });
     navItems.push({ name: 'Approvals', path: '/approvals', icon: CheckCircle });
   }
 

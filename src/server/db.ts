@@ -213,11 +213,26 @@ export const dbInit = async () => {
     `);
 
     // --- MIGRATIONS ---
-    // Ensure lands table has parent_property_id column (migration safety)
+    // Ensure existing lands tables have all columns used by current subdivision flows.
     await client.query(`DO $$
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='parent_property_id') THEN
         ALTER TABLE lands ADD COLUMN parent_property_id INTEGER REFERENCES parent_properties(id);
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='paid_amount') THEN
+        ALTER TABLE lands ADD COLUMN paid_amount NUMERIC NOT NULL DEFAULT 0;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='customer_id') THEN
+        ALTER TABLE lands ADD COLUMN customer_id INTEGER;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='title_deed_status') THEN
+        ALTER TABLE lands ADD COLUMN title_deed_status TEXT NOT NULL DEFAULT 'pending';
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='title_deed_url') THEN
+        ALTER TABLE lands ADD COLUMN title_deed_url TEXT;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='updated_at') THEN
+        ALTER TABLE lands ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
       END IF;
     END $$;`);
     const tablesToMigrate = ['sales', 'payments', 'expenses', 'property_costs'];

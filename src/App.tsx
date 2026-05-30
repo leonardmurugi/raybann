@@ -9,6 +9,7 @@ import Financials from './components/Financials';
 import Approvals from './components/Approvals';
 import DataMigration from './components/DataMigration';
 import Reports from './components/Reports';
+import AdminInventory from './components/AdminInventory';
 import Login from './components/Login';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ function AppContent() {
       }>
         <Route index element={<Dashboard />} />
         <Route path="lands" element={<LandManagement />} />
+        <Route path="inventory-admin" element={<AdminInventory />} />
         <Route path="customers" element={<CustomerManagement />} />
         <Route path="financials" element={<Financials />} />
         <Route path="approvals" element={<Approvals />} />
