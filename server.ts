@@ -12,19 +12,21 @@ import multer from "multer";
 import { parseExcel } from "./src/lib/csvParser.js";
 
 dotenv.config();
+// Static assets middleware moved below app initialization
 
-const app = express();
+await dbInit();
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "terratrack-secret-key-2026";
 
+const app = express();
 app.use(cors());
+app.use(express.static(path.join(path.dirname(new URL(import.meta.url).pathname), "public")));
 app.use(helmet({
   contentSecurityPolicy: false, // For development with Vite
 }));
 app.use(express.json({ limit: '10mb' })); // Support larger bulk uploads
 
-// Initialize Database
-dbInit();
+
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -156,6 +158,52 @@ app.get("/api/customers", authenticateToken, async (req, res) => {
   }
 });
 
+  // --- INVENTORY ROUTES ---
+  app.get("/api/inventory", authenticateToken, async (req, res) => {
+    try {
+      const result = await pool.query(`SELECT * FROM inventory ORDER BY item_name ASC`);
+      res.json(result.rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/inventory", authenticateToken, async (req, res) => {
+    const { item_name, quantity, unit_price, category } = req.body;
+    try {
+      const result = await pool.query(
+        "INSERT INTO inventory (item_name, quantity, unit_price, category) VALUES ($1, $2, $3, $4) RETURNING *",
+        [item_name, quantity, unit_price, category]
+      );
+      res.status(201).json(result.rows[0]);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put("/api/inventory/:id", authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { item_name, quantity, unit_price, category } = req.body;
+    try {
+      const result = await pool.query(
+        `UPDATE inventory SET item_name = $1, quantity = $2, unit_price = $3, category = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *`,
+        [item_name, quantity, unit_price, category, id]
+      );
+      res.json(result.rows[0]);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/inventory/:id", authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+      await pool.query(`DELETE FROM inventory WHERE id = $1`, [id]);
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
 app.post("/api/customers", authenticateToken, async (req, res) => {
   const { name, email, phone, id_number } = req.body;
   try {
@@ -168,6 +216,7 @@ app.post("/api/customers", authenticateToken, async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+// Duplicate customer POST blocks removed
 
 // --- SALES & PAYMENTS ---
 app.get("/api/sales", authenticateToken, async (req, res) => {
@@ -675,7 +724,16 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
   try {
     await client.query("BEGIN");
     const importedCount = data.length;
-
+// Ensure lands table has parent_property_id column (migration safety)
+await client.query(`DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='lands' AND column_name='parent_property_id'
+  ) THEN
+    ALTER TABLE lands ADD COLUMN parent_property_id INTEGER REFERENCES parent_properties(id);
+  END IF;
+END $$;`);
     if (target === 'customers') {
       for (const row of data) {
         // Find columns matching id_number, phone, email, name

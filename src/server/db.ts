@@ -213,7 +213,13 @@ export const dbInit = async () => {
     `);
 
     // --- MIGRATIONS ---
-    // Ensure is_approved and approved_by columns exist in existing tables
+    // Ensure lands table has parent_property_id column (migration safety)
+    await client.query(`DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='parent_property_id') THEN
+        ALTER TABLE lands ADD COLUMN parent_property_id INTEGER REFERENCES parent_properties(id);
+      END IF;
+    END $$;`);
     const tablesToMigrate = ['sales', 'payments', 'expenses', 'property_costs'];
     for (const table of tablesToMigrate) {
       // Add is_approved
