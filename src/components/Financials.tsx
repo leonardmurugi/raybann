@@ -111,6 +111,22 @@ export default function Financials() {
     amount: 0
   });
 
+  const [salaryPaymentForm, setSalaryPaymentForm] = useState({
+    payroll_id: '',
+    staff_name: '',
+    amount: 0,
+    payment_method: 'mpesa',
+    transaction_ref: ''
+  });
+
+  const [unpaidPayroll, setUnpaidPayroll] = useState<any[]>([]);
+  const [isPaySalaryOpen, setPaySalaryOpen] = useState(false);
+  const [isRunPayrollOpen, setRunPayrollOpen] = useState(false);
+  const [runPayrollForm, setRunPayrollForm] = useState({
+    payment_method: 'mpesa',
+    transaction_ref: ''
+  });
+
   const [customDocForm, setCustomDocForm] = useState({
     type: 'invoice',
     recipient: '',
@@ -387,6 +403,69 @@ export default function Financials() {
     }
   }
 
+  async function loadUnpaidPayroll() {
+    try {
+      const result = await api.payroll.listUnpaid();
+      setUnpaidPayroll(result);
+    } catch (err) {
+      console.error('Error loading unpaid payroll:', err);
+    }
+  }
+
+  async function handlePaySalary(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await api.salaryPayments.create({
+        payroll_id: salaryPaymentForm.payroll_id ? parseInt(salaryPaymentForm.payroll_id) : null,
+        staff_name: salaryPaymentForm.staff_name,
+        amount: salaryPaymentForm.amount,
+        payment_method: salaryPaymentForm.payment_method,
+        transaction_ref: salaryPaymentForm.transaction_ref
+      });
+      setPaySalaryOpen(false);
+      setSalaryPaymentForm({ payroll_id: '', staff_name: '', amount: 0, payment_method: 'mpesa', transaction_ref: '' });
+      loadData();
+      loadUnpaidPayroll();
+      alert('Salary payment recorded successfully.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error recording salary payment');
+    }
+  }
+
+  async function handleRunPayroll(e: React.FormEvent) {
+    e.preventDefault();
+    if (!window.confirm('Run payroll for all unpaid staff? This will process all pending salaries.')) return;
+    try {
+      const result = await api.payroll.runPayroll({
+        payment_method: runPayrollForm.payment_method,
+        transaction_ref: runPayrollForm.transaction_ref
+      });
+      setRunPayrollOpen(false);
+      setRunPayrollForm({ payment_method: 'mpesa', transaction_ref: '' });
+      loadData();
+      loadUnpaidPayroll();
+      alert(`${result.processed} salaries processed successfully.`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error running payroll');
+    }
+  }
+
+  function handlePayrollAutofill(e: React.ChangeEvent<HTMLSelectElement>) {
+    const payrollId = e.target.value;
+    if (payrollId) {
+      const selected = unpaidPayroll.find(p => p.id === parseInt(payrollId));
+      if (selected) {
+        setSalaryPaymentForm({
+          payroll_id: payrollId,
+          staff_name: selected.staff_name,
+          amount: parseFloat(selected.net_amount || 0),
+          payment_method: 'mpesa',
+          transaction_ref: ''
+        });
+      }
+    }
+  }
+
   function openEditRecord(item: any) {
     setEditingRecord(item);
     if (activeTab === 'customer-payments') {
@@ -635,12 +714,26 @@ export default function Financials() {
                   </button>
                 )}
                 {activeTab === 'payroll' && (
-                  <button 
-                    onClick={() => setAddPayrollOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-orange text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-brand-orange/20"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Log Staff Salary
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => { setAddPayrollOpen(true); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-orange text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-brand-orange/20"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Log Staff Salary
+                    </button>
+                    <button 
+                      onClick={() => { loadUnpaidPayroll(); setPaySalaryOpen(true); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-emerald-500/20"
+                    >
+                      <Wallet className="w-3.5 h-3.5" /> Pay Salary
+                    </button>
+                    <button 
+                      onClick={() => { loadUnpaidPayroll(); setRunPayrollOpen(true); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm shadow-blue-500/20"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" /> Run Payroll
+                    </button>
+                  </div>
                 )}
                 {activeTab === 'debts-payables' && (
                   <button 
@@ -696,17 +789,23 @@ export default function Financials() {
                   data.map((item) => (
                     <div key={item.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${item.is_paid ? 'bg-emerald-50 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}>
                           <Users className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="font-display font-semibold text-[13px] text-brand-blue">{item.staff_name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-display font-semibold text-[13px] text-brand-blue">{item.staff_name}</p>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${item.is_paid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {item.is_paid ? 'Paid' : 'Pending'}
+                            </span>
+                          </div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                             Period: {item.month_year} • Basic: KES {parseFloat(item.basic || 0).toLocaleString()} • Comm: KES {parseFloat(item.commission || 0).toLocaleString()} • Trans: KES {parseFloat(item.transport || 0).toLocaleString()}
                           </p>
                           {item.reporting_date && (
                             <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold">
                               Date Filed: {new Date(item.reporting_date).toLocaleDateString()}
+                              {item.is_paid && item.paid_date && ` • Paid: ${new Date(item.paid_date).toLocaleDateString()}`}
                             </p>
                           )}
                         </div>
@@ -714,6 +813,11 @@ export default function Financials() {
                       <div className="text-right">
                         <p className="font-display font-bold text-[13px] text-slate-800">KES {parseFloat(item.net_amount || 0).toLocaleString()}</p>
                         <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest mt-0.5">Deductions: -KES {parseFloat(item.deductions || 0).toLocaleString()}</p>
+                        {item.is_paid && item.paid_method && (
+                          <p className="text-[9px] text-emerald-600 font-semibold uppercase tracking-widest mt-1">
+                            Via: {item.paid_method.toUpperCase()}
+                          </p>
+                        )}
                         <RecordDocumentActions item={item} />
                         <AdminRecordActions item={item} />
                       </div>
@@ -1210,6 +1314,156 @@ export default function Financials() {
                 <div className="flex gap-4 pt-4">
                   <button type="button" onClick={() => setAddPayrollOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
                   <button type="submit" className="flex-1 py-4 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20">Log Payroll</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Pay Staff Salary Modal */}
+      <AnimatePresence>
+        {isPaySalaryOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPaySalaryOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+              <header className="mb-6 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-emerald-600 tracking-widest mb-1">Payroll Disbursement</p>
+                  <h2 className="text-2xl font-display font-bold tracking-tighter text-brand-blue">Pay Staff Salary</h2>
+                </div>
+                <button onClick={() => setPaySalaryOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </header>
+
+              <form onSubmit={handlePaySalary} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Select Unpaid Payroll</label>
+                  <select 
+                    required
+                    value={salaryPaymentForm.payroll_id}
+                    onChange={handlePayrollAutofill}
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                  >
+                    <option value="">Select staff member...</option>
+                    {unpaidPayroll.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.staff_name} - {p.month_year} (KES {parseFloat(p.net_amount || 0).toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Employee Name</label>
+                  <input 
+                    type="text" required
+                    value={salaryPaymentForm.staff_name}
+                    readOnly
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800 bg-slate-100"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Amount (KES)</label>
+                  <input 
+                    type="number" required
+                    value={salaryPaymentForm.amount}
+                    readOnly
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800 bg-slate-100"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Payment Method</label>
+                  <select 
+                    required
+                    value={salaryPaymentForm.payment_method}
+                    onChange={e => setSalaryPaymentForm({...salaryPaymentForm, payment_method: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="mpesa">M-Pesa</option>
+                    <option value="bank">Bank Transfer</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Transaction Reference (e.g. M-Pesa Code)</label>
+                  <input 
+                    type="text"
+                    value={salaryPaymentForm.transaction_ref}
+                    onChange={e => setSalaryPaymentForm({...salaryPaymentForm, transaction_ref: e.target.value})}
+                    placeholder="e.g. MPESA123456"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setPaySalaryOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
+                  <button type="submit" className="flex-1 py-4 bg-emerald-500 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-500/20">Process Payment</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Run Payroll Modal */}
+      <AnimatePresence>
+        {isRunPayrollOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setRunPayrollOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100">
+              <header className="mb-6 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-blue-600 tracking-widest mb-1">Batch Processing</p>
+                  <h2 className="text-2xl font-display font-bold tracking-tighter text-brand-blue">Run Payroll</h2>
+                </div>
+                <button onClick={() => setRunPayrollOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </header>
+
+              <form onSubmit={handleRunPayroll} className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                  <p className="text-sm text-blue-900 font-semibold">
+                    This will process salary payments for {unpaidPayroll.length} staff member{unpaidPayroll.length !== 1 ? 's' : ''}.
+                  </p>
+                  <p className="text-xs text-blue-700 mt-2">Total Amount: <span className="font-bold">KES {unpaidPayroll.reduce((acc, p) => acc + parseFloat(p.net_amount || 0), 0).toLocaleString()}</span></p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Payment Method</label>
+                  <select 
+                    required
+                    value={runPayrollForm.payment_method}
+                    onChange={e => setRunPayrollForm({...runPayrollForm, payment_method: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="mpesa">M-Pesa</option>
+                    <option value="bank">Bank Transfer</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Batch Reference Code</label>
+                  <input 
+                    type="text"
+                    value={runPayrollForm.transaction_ref}
+                    onChange={e => setRunPayrollForm({...runPayrollForm, transaction_ref: e.target.value})}
+                    placeholder="e.g. PAYROLL_AUG2025"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-slate-800"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setRunPayrollOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
+                  <button type="submit" className="flex-1 py-4 bg-blue-500 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-blue-500/20">Run Payroll</button>
                 </div>
               </form>
             </motion.div>

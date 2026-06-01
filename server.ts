@@ -1427,6 +1427,97 @@ app.delete("/api/payroll/:id", authenticateToken, requireAdmin, async (req: any,
   }
 });
 
+// --- SALARY PAYMENTS ENDPOINTS ---
+// Get unpaid payroll records
+app.get("/api/payroll/unpaid", authenticateToken, async (req: any, res: any) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM payroll WHERE is_paid = FALSE OR is_paid IS NULL ORDER BY reporting_date DESC, id DESC"
+    );
+    res.json(result.rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all salary payments
+app.get("/api/salary-payments", authenticateToken, async (req: any, res: any) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM salary_payments ORDER BY payment_date DESC, id DESC"
+    );
+    res.json(result.rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Record a salary payment
+app.post("/api/salary-payments", authenticateToken, async (req: any, res: any) => {
+  const { payroll_id, staff_name, amount, payment_method, transaction_ref } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO salary_payments (payroll_id, staff_name, amount, payment_method, transaction_ref, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [payroll_id, staff_name, parseFloat(amount || 0), payment_method, transaction_ref, req.user.id]
+    );
+    
+    // Mark payroll as paid
+    if (payroll_id) {
+      await pool.query(
+        "UPDATE payroll SET is_paid = TRUE, paid_date = CURRENT_TIMESTAMP, paid_method = $1 WHERE id = $2",
+        [payment_method, payroll_id]
+      );
+    }
+    
+    res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Run payroll - process all unpaid salaries
+app.post("/api/payroll/run", authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const { payment_method, transaction_ref } = req.body;
+  try {
+    // Get all unpaid payroll
+    const unpaidResult = await pool.query(
+      "SELECT * FROM payroll WHERE is_paid = FALSE OR is_paid IS NULL"
+    );
+    const unpaidPayroll = unpaidResult.rows;
+    
+    if (unpaidPayroll.length === 0) {
+      return res.json({ message: "No unpaid payroll to process", processed: 0 });
+    }
+    
+    // Process each payroll
+    const payments = [];
+    for (const payroll of unpaidPayroll) {
+      const paymentResult = await pool.query(
+        `INSERT INTO salary_payments (payroll_id, staff_name, amount, payment_method, transaction_ref, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [payroll.id, payroll.staff_name, payroll.net_amount, payment_method, transaction_ref, req.user.id]
+      );
+      
+      // Mark payroll as paid
+      await pool.query(
+        "UPDATE payroll SET is_paid = TRUE, paid_date = CURRENT_TIMESTAMP, paid_method = $1 WHERE id = $2",
+        [payment_method, payroll.id]
+      );
+      
+      payments.push(paymentResult.rows[0]);
+    }
+    
+    res.json({
+      message: `Payroll processed successfully for ${payments.length} staff`,
+      processed: payments.length,
+      payments
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get("/api/petty-cash", authenticateToken, async (req: any, res: any) => {
   try {
     const result = await pool.query("SELECT * FROM petty_cash ORDER BY date DESC, id DESC");

@@ -196,7 +196,26 @@ export const dbInit = async () => {
         deductions NUMERIC NOT NULL DEFAULT 0,
         gross_amount NUMERIC NOT NULL DEFAULT 0,
         net_amount NUMERIC NOT NULL DEFAULT 0,
-        reporting_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        reporting_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        is_paid BOOLEAN DEFAULT FALSE,
+        paid_date TIMESTAMP WITH TIME ZONE,
+        paid_method TEXT
+      )
+    `);
+
+    // Salary Payments Table (Disbursements)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS salary_payments (
+        id SERIAL PRIMARY KEY,
+        payroll_id INTEGER REFERENCES payroll(id),
+        staff_name TEXT NOT NULL,
+        amount NUMERIC NOT NULL,
+        payment_method TEXT NOT NULL,
+        transaction_ref TEXT,
+        payment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        is_approved BOOLEAN DEFAULT FALSE,
+        approved_by INTEGER REFERENCES users(id),
+        created_by INTEGER REFERENCES users(id)
       )
     `);
 
@@ -261,6 +280,20 @@ export const dbInit = async () => {
         END $$;
       `);
     }
+
+    // Migrate payroll table to add payment tracking columns
+    await client.query(`DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='payroll' AND column_name='is_paid') THEN
+        ALTER TABLE payroll ADD COLUMN is_paid BOOLEAN DEFAULT FALSE;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='payroll' AND column_name='paid_date') THEN
+        ALTER TABLE payroll ADD COLUMN paid_date TIMESTAMP WITH TIME ZONE;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='payroll' AND column_name='paid_method') THEN
+        ALTER TABLE payroll ADD COLUMN paid_method TEXT;
+      END IF;
+    END $$;`);
 
     client.release();
     console.log('Database schema initialized');

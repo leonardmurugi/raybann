@@ -117,9 +117,15 @@ export const api = {
   },
   payroll: {
     list: () => apiRequest('/payroll'),
+    listUnpaid: () => apiRequest('/payroll/unpaid'),
     create: (data: any) => apiRequest('/payroll', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiRequest(`/payroll/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => apiRequest(`/payroll/${id}`, { method: 'DELETE' }),
+    runPayroll: (data: any) => apiRequest('/payroll/run', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  salaryPayments: {
+    list: () => apiRequest('/salary-payments'),
+    create: (data: any) => apiRequest('/salary-payments', { method: 'POST', body: JSON.stringify(data) }),
   },
   pettyCash: {
     list: () => apiRequest('/petty-cash'),
