@@ -996,11 +996,66 @@ app.post("/api/approvals/property-cost/:id", authenticateToken, async (req: any,
 });
 
 // --- DATA MIGRATION IMPORT ---
+function normalizeImportKey(key: string) {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[()/-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+function normalizeImportRow(row: Record<string, any>) {
+  const normalized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(row || {})) {
+    const normalizedKey = normalizeImportKey(key);
+    if (!normalizedKey) continue;
+    normalized[normalizedKey] = value;
+  }
+  return normalized;
+}
+
+function pickImportValue(row: Record<string, any>, keys: string[], fallback: any = '') {
+  for (const key of keys) {
+    const normalizedKey = normalizeImportKey(key);
+    const value = row[normalizedKey];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
+    }
+  }
+  return fallback;
+}
+
+function parseImportMoney(value: any) {
+  const cleaned = String(value ?? '')
+    .replace(/,/g, '')
+    .replace(/[^\d.-]/g, '')
+    .trim();
+  if (!cleaned || cleaned === '-' || cleaned === '.') return 0;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseImportDate(value: any) {
+  if (value === undefined || value === null || String(value).trim() === '') return new Date();
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    excelEpoch.setUTCDate(excelEpoch.getUTCDate() + value);
+    return excelEpoch;
+  }
+  const parsed = new Date(String(value).trim());
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 app.post("/api/migrations/import", authenticateToken, async (req, res) => {
-  const { target, data } = req.body;
-  if (!data || !Array.isArray(data)) {
+  const { target } = req.body;
+  const rawData = req.body.data;
+  if (!rawData || !Array.isArray(rawData)) {
     return res.status(400).json({ error: "Invalid data. Expected an array of records." });
   }
+  const data = rawData.map(normalizeImportRow);
 
   const client = await pool.connect();
   try {
@@ -1019,10 +1074,10 @@ END $$;`);
     if (target === 'customers') {
       for (const row of data) {
         // Find columns matching id_number, phone, email, name
-        const name = row.name || row.Name || row.client_name || '';
-        const email = row.email || row.Email || null;
-        const phone = String(row.phone || row.Phone || row.telephone || row.contact || '');
-        const id_number = String(row.id_number || row.id || row.ID || row.passport || row.Passport || row.id_passport || '');
+        const name = pickImportValue(row, ['name', 'client_name', 'customer_name'], '');
+        const email = pickImportValue(row, ['email'], null);
+        const phone = String(pickImportValue(row, ['phone', 'telephone', 'contact'], ''));
+        const id_number = String(pickImportValue(row, ['id_number', 'id', 'passport', 'id_passport'], ''));
         
         if (!name || !phone || !id_number) continue;
 
@@ -1036,12 +1091,12 @@ END $$;`);
       }
     } else if (target === 'properties') {
       for (const row of data) {
-        const name = row.name || row.Name || row.property_name || '';
-        const location = row.location || row.Location || '';
+        const name = pickImportValue(row, ['name', 'property_name'], '');
+        const location = pickImportValue(row, ['location'], '');
         const total_size = String(row.total_size || row.size || row.acres || '0');
-        const buying_price = parseFloat(row.buying_price || row.price || row.cost || '0');
-        const amount_paid_to_seller = parseFloat(row.amount_paid || row.paid || '0');
-        const notes = row.notes || row.Notes || '';
+        const buying_price = parseImportMoney(pickImportValue(row, ['buying_price', 'price', 'cost'], 0));
+        const amount_paid_to_seller = parseImportMoney(pickImportValue(row, ['amount_paid', 'paid'], 0));
+        const notes = pickImportValue(row, ['notes'], '');
 
         if (!name || !location) continue;
 
@@ -1053,13 +1108,13 @@ END $$;`);
       }
     } else if (target === 'lands') {
       for (const row of data) {
-        const plot_number = String(row.plot_number || row.plot || row.Plot || row.number || '');
-        const location = row.location || row.Location || '';
+        const plot_number = String(pickImportValue(row, ['plot_number', 'plot', 'number', 'plot_description'], ''));
+        const location = pickImportValue(row, ['location'], '');
         const size = String(row.size || row.Size || '50x100');
-        const total_cost = parseFloat(row.total_cost || row.price || row.cost || row.selling_price || '0');
-        const paid_amount = parseFloat(row.paid_amount || row.paid || '0');
-        const status = row.status || row.Status || (paid_amount >= total_cost ? 'sold' : paid_amount > 0 ? 'reserved' : 'available');
-        const title_deed_status = row.title_deed_status || row.deed || 'pending';
+        const total_cost = parseImportMoney(pickImportValue(row, ['total_cost', 'price', 'cost', 'selling_price', 'amount'], 0));
+        const paid_amount = parseImportMoney(pickImportValue(row, ['paid_amount', 'paid', 'actual_payment'], 0));
+        const status = pickImportValue(row, ['status'], '') || (paid_amount >= total_cost ? 'sold' : paid_amount > 0 ? 'reserved' : 'available');
+        const title_deed_status = pickImportValue(row, ['title_deed_status', 'deed'], 'pending');
         const parent_property_id = row.parent_property_id ? parseInt(row.parent_property_id) : null;
 
         if (!plot_number || !location) continue;
@@ -1074,16 +1129,16 @@ END $$;`);
       }
     } else if (target === 'payroll') {
       for (const row of data) {
-        const staff_name = row.staff_name || row.NAME || row.Name || row.name || '';
+        const staff_name = pickImportValue(row, ['staff_name', 'name'], '');
         if (!staff_name || staff_name.toUpperCase() === 'TOTAL' || staff_name.toUpperCase().includes('RAYBANN')) continue;
-        const month_year = row.month_year || 'August 2025';
-        const basic = parseFloat(row.basic || row.BASIC || '0');
-        const commission = parseFloat(row.commission || row.COMMISSION || '0');
-        const transport = parseFloat(row.transport || row.TRANSPORT || '0');
-        const deductions = parseFloat(row.deductions || row.DEDUCTIONS || '0');
-        const gross_amount = parseFloat(row.gross_amount || row.gross || row.GROSS || '0');
-        const net_amount = parseFloat(row.net_amount || row.net || row.NET || '0');
-        let reporting_date = row.reporting_date || row['REPORTING DATE'] || row.date || new Date();
+        const month_year = pickImportValue(row, ['month_year'], 'August 2025');
+        const basic = parseImportMoney(pickImportValue(row, ['basic'], 0));
+        const commission = parseImportMoney(pickImportValue(row, ['commission'], 0));
+        const transport = parseImportMoney(pickImportValue(row, ['transport'], 0));
+        const deductions = parseImportMoney(pickImportValue(row, ['deductions'], 0));
+        const gross_amount = parseImportMoney(pickImportValue(row, ['gross_amount', 'gross'], 0));
+        const net_amount = parseImportMoney(pickImportValue(row, ['net_amount', 'net'], 0));
+        let reporting_date = parseImportDate(pickImportValue(row, ['reporting_date', 'date'], new Date()));
 
         await client.query(
           `INSERT INTO payroll (staff_name, month_year, basic, commission, transport, deductions, gross_amount, net_amount, reporting_date) 
@@ -1096,13 +1151,13 @@ END $$;`);
       let currentDesc = "";
       let currentTotalVal = 0;
       for (const row of data) {
-        let creditor_name = row.DEBT || row.name || row.Name || row.creditor || '';
-        let description = row.description || row.decscriptn || row.desc || '';
-        let total_amount = parseFloat(row.AMOUNT || row.amount || '0');
-        const paid_amount = parseFloat(row.PAID || row.paid || '0');
-        const date = row.DATE || row.date || new Date();
-        const payment_method = row['MODE(FROM)'] || row.mode || row.method || 'CASH';
-        const balance = parseFloat(row.BALANCE || row.balance || '0');
+        let creditor_name = pickImportValue(row, ['debt', 'name', 'creditor', 'creditor_name'], '');
+        let description = pickImportValue(row, ['description', 'decscriptn', 'desc'], '');
+        let total_amount = parseImportMoney(pickImportValue(row, ['amount', 'total_amount'], 0));
+        const paid_amount = parseImportMoney(pickImportValue(row, ['paid', 'paid_amount'], 0));
+        const date = parseImportDate(pickImportValue(row, ['date'], new Date()));
+        const payment_method = pickImportValue(row, ['mode_from', 'mode', 'method', 'payment_method'], 'CASH');
+        const balance = parseImportMoney(pickImportValue(row, ['balance'], 0));
 
         creditor_name = String(creditor_name).trim();
         if (creditor_name && creditor_name !== 'undefined' && creditor_name !== '') {
@@ -1130,21 +1185,21 @@ END $$;`);
       }
     } else if (target === 'petty_cash') {
       for (const row of data) {
-        const d_date = row.date_debit || row.Date || row.date || null;
-        const d_desc = row.desc_debit || row.Description || row.description || '';
-        const d_ref = row.ref_debit || row.CBN || '';
-        const d_amount = parseFloat(row.amount_debit || row.Amount || '0');
+        const d_date = pickImportValue(row, ['date_debit', 'date'], null);
+        const d_desc = pickImportValue(row, ['desc_debit', 'description'], '');
+        const d_ref = pickImportValue(row, ['ref_debit', 'cbn'], '');
+        const d_amount = parseImportMoney(pickImportValue(row, ['amount_debit', 'amount'], 0));
 
-        const c_date = row.date_credit || row.Date_1 || row.date || null;
-        const c_desc = row.desc_credit || row.Description_1 || '';
-        const c_ref = row.ref_credit || row.VN || '';
-        const c_amount = parseFloat(row.amount_credit || row.Amount_1 || '0');
+        const c_date = pickImportValue(row, ['date_credit', 'date_1', 'date'], null);
+        const c_desc = pickImportValue(row, ['desc_credit', 'description_1'], '');
+        const c_ref = pickImportValue(row, ['ref_credit', 'vn'], '');
+        const c_amount = parseImportMoney(pickImportValue(row, ['amount_credit', 'amount_1'], 0));
 
         if (d_date && d_amount > 0) {
           await client.query(
             `INSERT INTO petty_cash (date, type, description, ref_number, amount) 
              VALUES ($1, 'debit', $2, $3, $4)`,
-            [d_date, d_desc, d_ref, d_amount]
+            [parseImportDate(d_date), d_desc, d_ref, d_amount]
           );
         }
 
@@ -1152,7 +1207,7 @@ END $$;`);
           await client.query(
             `INSERT INTO petty_cash (date, type, description, ref_number, amount) 
              VALUES ($1, 'credit', $2, $3, $4)`,
-            [c_date, c_desc, c_ref, c_amount]
+            [parseImportDate(c_date), c_desc, c_ref, c_amount]
           );
         }
       }
@@ -1162,24 +1217,24 @@ END $$;`);
       let currentAmount = 0;
       
       for (const row of data) {
-        let name = row['CUSTOMER NAME'] || row.customer_name || row.Name || row.name || '';
-        let plot = row['PLOT DESCRIPTION'] || row.plot_description || row.plot || '';
-        let amount = parseFloat(row.AMOUNT || row.amount || '0');
-        const payment = parseFloat(row['ACTUAL PAYMENT'] || row.actual_payment || row.paid || '0');
-        const date = row.DATE || row.date || new Date();
-        const status = row['STATUS/TOTAL PAID'] || row.status || '';
-        const balance = parseFloat(row['BALANCE(C-F)'] || row.balance || '0');
+        let name = String(pickImportValue(row, ['customer_name', 'name'], '')).trim();
+        let plot = String(pickImportValue(row, ['plot_description', 'plot', 'plot_number'], '')).trim();
+        let amount = parseImportMoney(pickImportValue(row, ['amount', 'total_price', 'price'], 0));
+        const payment = parseImportMoney(pickImportValue(row, ['actual_payment', 'paid', 'paid_amount', 'payment'], 0));
+        const date = parseImportDate(pickImportValue(row, ['date'], new Date()));
+        const status = String(pickImportValue(row, ['status_total_paid', 'status', 'total_paid'], '')).trim();
+        const balance = parseImportMoney(pickImportValue(row, ['balance_c_f', 'balance'], 0));
 
-        name = String(name).trim();
-        plot = String(plot).trim();
+        const hasCustomerRow = !!name;
+        const looksLikeSummaryRow = !hasCustomerRow && payment === 0 && (status || balance > 0);
 
-        if (name && name !== 'undefined' && name !== '') {
+        if (hasCustomerRow) {
           currentCustomer = name;
           currentPlot = plot;
           currentAmount = amount;
         }
 
-        if (!currentCustomer) continue;
+        if (!currentCustomer || looksLikeSummaryRow) continue;
 
         let custRes = await client.query("SELECT id FROM customers WHERE name ILIKE $1", [currentCustomer]);
         let customer_id;
@@ -1199,17 +1254,26 @@ END $$;`);
         if (currentPlot) {
           let landRes = await client.query("SELECT id FROM lands WHERE plot_number = $1", [currentPlot]);
           if (landRes.rows.length === 0) {
+            const landStatus = balance <= 0 && status.toLowerCase().includes('cleared') ? 'sold' : 'reserved';
             const insLand = await client.query(
               `INSERT INTO lands (plot_number, location, size, acquisition_type, status, total_cost, paid_amount, customer_id) 
-               VALUES ($1, 'Kajiado / Kenya', '50x100', 'purchase', 'reserved', $2, $3, $4) RETURNING id`,
-              [currentPlot, currentAmount, payment, customer_id]
+               VALUES ($1, 'Kajiado / Kenya', '50x100', 'purchase', $2, $3, $4, $5) RETURNING id`,
+              [currentPlot, landStatus, currentAmount, payment, customer_id]
             );
             land_id = insLand.rows[0].id;
           } else {
             land_id = landRes.rows[0].id;
             await client.query(
-              "UPDATE lands SET paid_amount = paid_amount + $1, customer_id = $2 WHERE id = $3",
-              [payment, customer_id, land_id]
+              `UPDATE lands
+               SET total_cost = CASE WHEN $1::numeric > 0 THEN $1 ELSE total_cost END,
+                   paid_amount = paid_amount + $2,
+                   customer_id = $3,
+                   status = CASE
+                     WHEN paid_amount + $2 >= CASE WHEN $1::numeric > 0 THEN $1 ELSE total_cost END THEN 'sold'
+                     ELSE 'reserved'
+                   END
+               WHERE id = $4`,
+              [currentAmount, payment, customer_id, land_id]
             );
           }
         }
@@ -1225,7 +1289,13 @@ END $$;`);
             sale_id = insSale.rows[0].id;
           } else {
             sale_id = saleRes.rows[0].id;
-            await client.query("UPDATE sales SET paid_amount = paid_amount + $1 WHERE id = $2", [payment, sale_id]);
+            await client.query(
+              `UPDATE sales
+               SET total_price = CASE WHEN $1::numeric > 0 THEN $1 ELSE total_price END,
+                   paid_amount = paid_amount + $2
+               WHERE id = $3`,
+              [currentAmount, payment, sale_id]
+            );
           }
         }
 

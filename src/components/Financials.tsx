@@ -20,6 +20,9 @@ import {
   Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { parseExcel } from '../lib/csvParser';
+import { Buffer } from 'buffer';
+
 
 export default function Financials() {
   const { user } = useAuth();
@@ -29,11 +32,14 @@ export default function Financials() {
   const [properties, setProperties] = useState<any[]>([]);
   const [lands, setLands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [financialSheets, setFinancialSheets] = useState([]);
+  const [balanceOutstanding, setBalanceOutstanding] = useState(0);
   
   // Selected items for modals
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [selectedInvoiceSaleId, setSelectedInvoiceSaleId] = useState<number | null>(null);
   const [invoiceData, setInvoiceData] = useState<any>(null);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
 
   // Filter states
   const [startDate, setStartDate] = useState('');
@@ -47,6 +53,7 @@ export default function Financials() {
   const [isAddDebtOpen, setAddDebtOpen] = useState(false);
   const [isAddPettyOpen, setAddPettyOpen] = useState(false);
   const [isEditRecordOpen, setEditRecordOpen] = useState(false);
+  const [isCustomDocOpen, setCustomDocOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
 
@@ -104,6 +111,18 @@ export default function Financials() {
     amount: 0
   });
 
+  const [customDocForm, setCustomDocForm] = useState({
+    type: 'invoice',
+    recipient: '',
+    description: '',
+    amount: 0,
+    method: '',
+    reference: '',
+    status: 'pending',
+    date: new Date().toISOString().slice(0, 10),
+    notes: ''
+  });
+
   useEffect(() => {
     loadData();
   }, [activeTab, startDate, endDate]);
@@ -126,6 +145,22 @@ export default function Financials() {
     }
     loadFormMetadata();
   }, [isAddPaymentOpen, isAddPropCostOpen]);
+
+  useEffect(() => {
+    async function loadFinancialData() {
+      try {
+        const response = await fetch('/financials.xlsx');
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const sheets = parseExcel(buffer);
+        setFinancialSheets(sheets);
+      } catch (err) {
+        console.error('Error loading financial data:', err);
+      }
+    }
+    loadFinancialData();
+  }, []);
+
 
   async function loadData() {
     setLoading(true);
@@ -150,6 +185,8 @@ export default function Financials() {
       } else if (activeTab === 'debts-payables') {
         const list = await api.debtsPayables.list();
         setData(list);
+        const total = list.reduce((acc, item) => acc + (parseFloat(item.balance) || 0), 0);
+        setBalanceOutstanding(total);
       } else if (activeTab === 'petty-cash') {
         const list = await api.pettyCash.list();
         setData(list);
@@ -173,6 +210,78 @@ export default function Financials() {
   const handlePrint = () => {
     window.print();
   };
+
+  function formatMoney(value: any) {
+    return `KES ${Number(value || 0).toLocaleString()}`;
+  }
+
+  function readable(value: any) {
+    return String(value || '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  function activeTabLabel() {
+    if (activeTab === 'customer-payments') return 'Customer Payment';
+    if (activeTab === 'office-expenses') return 'Office Expense';
+    if (activeTab === 'property-costs') return 'Property Cost';
+    if (activeTab === 'sales-invoices') return 'Sale';
+    if (activeTab === 'payroll') return 'Payroll';
+    if (activeTab === 'debts-payables') return 'Vendor Liability';
+    return 'Petty Cash';
+  }
+
+  function openCustomDocument() {
+    setCustomDocForm({
+      type: 'invoice',
+      recipient: '',
+      description: '',
+      amount: 0,
+      method: '',
+      reference: '',
+      status: 'pending',
+      date: new Date().toISOString().slice(0, 10),
+      notes: ''
+    });
+    setCustomDocOpen(true);
+  }
+
+  function handleGenerateCustomDocument(e: React.FormEvent) {
+    e.preventDefault();
+    setSelectedDocument({
+      ...customDocForm,
+      source: 'Custom Charge',
+      amount: Number(customDocForm.amount || 0),
+      lines: [{ description: customDocForm.description, amount: Number(customDocForm.amount || 0) }]
+    });
+    setCustomDocOpen(false);
+  }
+
+  function openRecordDocument(item: any, type: 'invoice' | 'receipt') {
+    const amount =
+      item.amount ?? item.total_price ?? item.total_amount ?? item.net_amount ?? item.balance ?? item.paid_amount ?? 0;
+    const recipient =
+      item.customer_name || item.creditor_name || item.staff_name || item.property_name || item.description || 'Raybann Properties';
+    const description =
+      item.description ||
+      item.category ||
+      (item.plot_number ? `Plot ${item.plot_number}` : '') ||
+      activeTabLabel();
+
+    setSelectedDocument({
+      type,
+      recipient,
+      description: readable(description),
+      amount: Number(amount || 0),
+      method: item.method || item.payment_method || (item.type ? readable(item.type) : ''),
+      reference: item.receipt_number || item.transaction_ref || item.ref_number || `${activeTab.toUpperCase()}-${item.id}`,
+      status: item.is_approved ? 'official' : item.status || 'pending',
+      date: item.date || item.reporting_date || new Date().toISOString(),
+      source: activeTabLabel(),
+      notes: type === 'receipt' ? 'Payment received and recorded in the finance ledger.' : 'Charge raised from the finance ledger.',
+      lines: [{ description: readable(description), amount: Number(amount || 0) }]
+    });
+  }
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -392,18 +501,32 @@ export default function Financials() {
     );
   }
 
-  // Calculate totals for quick overview cards
-  const balanceOutstanding = sales.reduce((acc, sale) => acc + (parseFloat(sale.total_price) - parseFloat(sale.paid_amount)), 0);
-  const totalCollections = data.filter(d => d.type === 'received' && d.is_approved).reduce((acc, d) => acc + parseFloat(d.amount), 0);
+  function RecordDocumentActions({ item, allowInvoice = true, allowReceipt = true }: { item: any, allowInvoice?: boolean, allowReceipt?: boolean }) {
+    return (
+      <div className="flex justify-end gap-2 mt-2 no-print">
+        {allowInvoice && (
+          <button onClick={() => openRecordDocument(item, 'invoice')} className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-brand-blue hover:underline">
+            Invoice
+          </button>
+        )}
+        {allowReceipt && (
+          <button onClick={() => openRecordDocument(item, 'receipt')} className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-brand-orange hover:underline">
+            Receipt
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-10 font-sans pt-4">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
+      <header className="flex flex-col gap-6">
+        <div className="flex flex-col space-y-4 w-full">
+         <div>
           <h1 className="text-3xl font-display font-medium tracking-tight text-slate-900">Finance</h1>
           <p className="text-slate-500 text-sm font-medium">Ledger management and financial categorization</p>
         </div>
-        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex-wrap gap-1">
+        <div className="flex flex-wrap justify-between gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
           {[
             { id: 'customer-payments', label: 'Payments', icon: Users },
             { id: 'office-expenses', label: 'Operations', icon: Building2 },
@@ -426,6 +549,8 @@ export default function Financials() {
             </button>
           ))}
         </div>
+        </div>
+      
       </header>
 
       {/* Date Range Filters */}
@@ -477,6 +602,12 @@ export default function Financials() {
                    activeTab === 'debts-payables' ? 'Company Vendor Debts & Liabilities' :
                    'Petty Cash Book Ledger'}
                 </h3>
+                <button 
+                  onClick={openCustomDocument}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-brand-blue/10 text-brand-blue rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm hover:bg-brand-blue hover:text-white transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5" /> Any Invoice / Receipt
+                </button>
                 
                 {/* Dynamic Logging Buttons based on active tab */}
                 {activeTab === 'customer-payments' && (
@@ -556,6 +687,7 @@ export default function Financials() {
                         >
                           Generate Invoice
                         </button>
+                        <RecordDocumentActions item={sale} allowInvoice={false} />
                         <AdminRecordActions item={sale} />
                       </div>
                     </div>
@@ -582,6 +714,7 @@ export default function Financials() {
                       <div className="text-right">
                         <p className="font-display font-bold text-[13px] text-slate-800">KES {parseFloat(item.net_amount || 0).toLocaleString()}</p>
                         <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest mt-0.5">Deductions: -KES {parseFloat(item.deductions || 0).toLocaleString()}</p>
+                        <RecordDocumentActions item={item} />
                         <AdminRecordActions item={item} />
                       </div>
                     </div>
@@ -614,6 +747,7 @@ export default function Financials() {
                         <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
                           Total: KES {parseFloat(item.total_amount || 0).toLocaleString()} • Paid: KES {parseFloat(item.paid_amount || 0).toLocaleString()}
                         </p>
+                        <RecordDocumentActions item={item} />
                         <AdminRecordActions item={item} />
                       </div>
                     </div>
@@ -647,6 +781,7 @@ export default function Financials() {
                             {new Date(item.date).toLocaleDateString()}
                           </p>
                         )}
+                        <RecordDocumentActions item={item} />
                         <AdminRecordActions item={item} />
                       </div>
                     </div>
@@ -704,6 +839,7 @@ export default function Financials() {
                             <FileText className="w-3 h-3" /> View Receipt
                           </button>
                         )}
+                        <RecordDocumentActions item={item} allowReceipt={item.type !== 'received'} />
                         <AdminRecordActions item={item} />
                       </div>
                     </div>
@@ -1265,6 +1401,140 @@ export default function Financials() {
         )}
       </AnimatePresence>
 
+      {/* Custom Invoice / Receipt Modal */}
+      <AnimatePresence>
+        {isCustomDocOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCustomDocOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-xl bg-white rounded-[3rem] p-10 overflow-hidden shadow-2xl border border-slate-100">
+              <header className="mb-6 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-brand-orange tracking-widest mb-1">Document Generator</p>
+                  <h2 className="text-2xl font-display font-bold tracking-tighter text-brand-blue">Invoice / Receipt</h2>
+                </div>
+                <button onClick={() => setCustomDocOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </header>
+
+              <form onSubmit={handleGenerateCustomDocument} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Document Type</label>
+                    <select
+                      value={customDocForm.type}
+                      onChange={e => setCustomDocForm({ ...customDocForm, type: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                    >
+                      <option value="invoice">Invoice</option>
+                      <option value="receipt">Receipt</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={customDocForm.date}
+                      onChange={e => setCustomDocForm({ ...customDocForm, date: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Customer / Recipient</label>
+                  <input
+                    type="text"
+                    required
+                    value={customDocForm.recipient}
+                    onChange={e => setCustomDocForm({ ...customDocForm, recipient: e.target.value })}
+                    placeholder="Name or company"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Charge Description</label>
+                  <input
+                    type="text"
+                    required
+                    value={customDocForm.description}
+                    onChange={e => setCustomDocForm({ ...customDocForm, description: e.target.value })}
+                    placeholder="e.g. Title deed processing fee"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Amount (KES)</label>
+                    <input
+                      type="number"
+                      required
+                      value={customDocForm.amount}
+                      onChange={e => setCustomDocForm({ ...customDocForm, amount: Number(e.target.value || 0) })}
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-orange"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Status</label>
+                    <select
+                      value={customDocForm.status}
+                      onChange={e => setCustomDocForm({ ...customDocForm, status: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="official">Official</option>
+                      <option value="paid">Paid</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Method</label>
+                    <input
+                      type="text"
+                      value={customDocForm.method}
+                      onChange={e => setCustomDocForm({ ...customDocForm, method: e.target.value })}
+                      placeholder="Cash, M-Pesa, Bank"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Reference</label>
+                    <input
+                      type="text"
+                      value={customDocForm.reference}
+                      onChange={e => setCustomDocForm({ ...customDocForm, reference: e.target.value })}
+                      placeholder="Optional"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes</label>
+                  <input
+                    type="text"
+                    value={customDocForm.notes}
+                    onChange={e => setCustomDocForm({ ...customDocForm, notes: e.target.value })}
+                    placeholder="Optional note shown on the document"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none text-brand-blue"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setCustomDocOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>
+                  <button type="submit" className="flex-1 py-4 bg-brand-orange text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-brand-orange/20">Generate</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Admin Edit Record Modal */}
       <AnimatePresence>
         {isEditRecordOpen && (
@@ -1559,6 +1829,118 @@ export default function Financials() {
                      Close
                   </button>
                </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Generic printable invoice / receipt */}
+      <AnimatePresence>
+        {selectedDocument && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedDocument(null)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-[640px] bg-white rounded-3xl p-10 flex flex-col print-container shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
+            >
+              <button onClick={() => setSelectedDocument(null)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 no-print">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+
+              <div className="w-full flex items-start justify-between border-b border-slate-100 pb-6 mb-8">
+                <div className="space-y-2">
+                  <img src="/logo.png" alt="Raybann Properties" className="h-14 w-auto" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Raybann Properties Kenya</p>
+                  <p className="text-[9px] font-semibold text-slate-400">Property Acquisition & Management</p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-2xl font-black text-brand-blue uppercase tracking-wider">{selectedDocument.type}</h2>
+                  <p className="text-xs font-bold text-slate-400 uppercase mt-1">
+                    {selectedDocument.reference || `${String(selectedDocument.type).toUpperCase()}-${Date.now()}`}
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-300 mt-0.5">
+                    Date: {new Date(selectedDocument.date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 mb-8 text-xs">
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                    {selectedDocument.type === 'receipt' ? 'Received From' : 'Billed To'}
+                  </h4>
+                  <p className="font-bold text-brand-blue text-sm">{selectedDocument.recipient}</p>
+                  <p className="text-slate-500 mt-1">{selectedDocument.source}</p>
+                </div>
+                <div className="text-right">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Document Status</h4>
+                  <span className={cn(
+                    "inline-block px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border",
+                    ['official', 'paid', 'cleared'].includes(String(selectedDocument.status).toLowerCase())
+                      ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                      : "bg-amber-50 text-amber-600 border-amber-100"
+                  )}>
+                    {readable(selectedDocument.status)}
+                  </span>
+                  {selectedDocument.method && (
+                    <p className="text-slate-500 mt-2">Method: {readable(selectedDocument.method)}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-slate-100 rounded-2xl overflow-hidden mb-8">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 font-bold uppercase tracking-widest text-[9px] text-slate-400">
+                      <th className="px-6 py-3">Charge Description</th>
+                      <th className="px-6 py-3 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {(selectedDocument.lines || [{ description: selectedDocument.description, amount: selectedDocument.amount }]).map((line: any, index: number) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 font-semibold text-slate-800">{line.description}</td>
+                        <td className="px-6 py-4 text-right font-bold text-brand-blue">{formatMoney(line.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-between items-start pt-6 border-t border-slate-100 mb-8 text-xs">
+                <div className="max-w-[300px]">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Notes</p>
+                  <p className="text-slate-500 leading-relaxed">
+                    {selectedDocument.notes || 'This is a computer generated finance document.'}
+                  </p>
+                </div>
+                <div className="space-y-2 text-right">
+                  <div className="flex justify-between gap-12">
+                    <span className="font-medium text-slate-400">Subtotal:</span>
+                    <span className="font-bold text-brand-blue">{formatMoney(selectedDocument.amount)}</span>
+                  </div>
+                  <div className="flex justify-between gap-12 border-t border-slate-100 pt-2 font-bold text-brand-orange text-sm">
+                    <span>Total:</span>
+                    <span>{formatMoney(selectedDocument.amount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 pt-6 text-[10px] text-slate-400">
+                <div className="border-t border-slate-200 pt-2">Prepared By</div>
+                <div className="border-t border-slate-200 pt-2 text-right">Authorized Signature</div>
+              </div>
+
+              <div className="w-full flex gap-4 mt-10 no-print">
+                <button onClick={handlePrint} className="flex-1 py-4 bg-brand-blue text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/10 hover:bg-brand-orange transition-all">
+                  <Printer className="w-4 h-4" /> Print {readable(selectedDocument.type)}
+                </button>
+                <button onClick={() => setSelectedDocument(null)} className="px-6 py-4 border border-slate-200 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:bg-slate-50">
+                  Close
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

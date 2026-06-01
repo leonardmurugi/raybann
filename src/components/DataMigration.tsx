@@ -125,6 +125,13 @@ export default function DataMigration() {
     if (name.includes('customer') || name.includes('plot description') || name.includes('statement') || headersLower.includes('plot description') || headersLower.includes('actual payment')) {
       return 'sales_ledger';
     }
+    if (headersLower.includes('customer name') && headersLower.includes('plot description')) {
+      return 'sales_ledger';
+    }
+    // Generic financial exports default to the sales ledger unless stronger sheet headers matched above.
+    if (name.includes('financials')) {
+      return 'sales_ledger';
+    }
     if (headersLower.includes('plot_number') || headersLower.includes('plot') || headersLower.includes('size')) {
       return 'lands';
     }

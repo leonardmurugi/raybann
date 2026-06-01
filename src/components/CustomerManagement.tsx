@@ -43,6 +43,18 @@ export default function CustomerManagement() {
     transaction_ref: ''
   });
 
+  function isSellableLand(land: any) {
+    const status = String(land.status || '').trim().toLowerCase();
+    return !['reserved', 'sold'].includes(status);
+  }
+
+  function formatLandOption(land: any) {
+    const status = String(land.status || '').trim().toLowerCase();
+    const parent = land.parent_name ? `${land.parent_name} / ` : '';
+    const statusLabel = status && status !== 'available' ? ` (${status})` : '';
+    return `${parent}${land.plot_number} - ${land.location}${statusLabel}`;
+  }
+
   useEffect(() => {
     load();
   }, []);
@@ -51,7 +63,7 @@ export default function CustomerManagement() {
     try {
       const [c, l] = await Promise.all([api.customers.list(), api.lands.list()]);
       setCustomers(c);
-      setLands(l.filter((land: any) => land.status === 'available'));
+      setLands(l.filter(isSellableLand));
     } catch (err) {
       console.error(err);
     } finally {
@@ -377,8 +389,8 @@ export default function CustomerManagement() {
                       }}
                       className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none text-brand-blue focus:ring-2 ring-brand-blue/5 transition-all"
                     >
-                      <option value="">Select an available plot</option>
-                      {lands.map(l => <option key={l.id} value={l.id}>{l.plot_number} - {l.location}</option>)}
+                      <option value="">Select a plot</option>
+                      {lands.map(l => <option key={l.id} value={l.id}>{formatLandOption(l)}</option>)}
                     </select>
                  </div>
 
@@ -394,7 +406,7 @@ export default function CustomerManagement() {
                        <input 
                          type="number"
                          value={saleForm.paid_amount}
-                         onChange={e => setSaleForm({...saleForm, paid_amount: parseInt(e.target.value)})}
+                         onChange={e => setSaleForm({...saleForm, paid_amount: Number(e.target.value || 0)})}
                          className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 ring-brand-orange/20 outline-none text-brand-orange"
                        />
                     </div>
