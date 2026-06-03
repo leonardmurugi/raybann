@@ -4,10 +4,22 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Validate database URL is set
+const dbUrl = process.env.DATABASE_URL;
+const dbAuthToken = process.env.DATABASE_AUTH_TOKEN;
+
+if (!dbUrl) {
+  console.error('❌ DATABASE_URL environment variable is not set');
+  console.error('Expected format: libsql://[db-id].lite.bunnydb.net/');
+  process.exit(1);
+}
+
+console.log('✓ Connecting to LibSQL database:', dbUrl.split('/')[2]);
+
 // Create LibSQL client for bunny.net database
 const libsqlClient = createClient({
-  url: process.env.DATABASE_URL || '',
-  authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+  url: dbUrl,
+  authToken: dbAuthToken,
 });
 
 // Create a wrapper that mimics mysql2/promise API for compatibility
