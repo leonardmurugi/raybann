@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { Package, Plus, Search, Edit3, Trash2, X, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '../lib/utils';
 
 const emptyForm = {
   item_name: '',
-  quantity: 0,
-  unit_price: 0,
+  quantity: '',
+  unit_price: '',
   category: ''
 };
 
@@ -184,8 +185,8 @@ export default function AdminInventory() {
                 <Input label="Item Name" value={form.item_name} onChange={v => setForm({ ...form, item_name: v })} placeholder="e.g. Office printer" />
                 <Input label="Category" value={form.category} onChange={v => setForm({ ...form, category: v })} placeholder="e.g. Office equipment" />
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Quantity" type="number" value={String(form.quantity)} onChange={v => setForm({ ...form, quantity: Number(v || 0) })} placeholder="0" />
-                  <Input label="Unit Price" type="number" value={String(form.unit_price)} onChange={v => setForm({ ...form, unit_price: Number(v || 0) })} placeholder="0" />
+                  <Input label="Quantity" type="number" value={form.quantity} onChange={(v: string) => setForm({ ...form, quantity: v })} placeholder="0" />
+                  <Input label="Unit Price" type="number" value={form.unit_price} onChange={(v: string) => setForm({ ...form, unit_price: v })} placeholder="0" />
                 </div>
                 <div className="flex gap-4 pt-3">
                   <button type="button" onClick={() => setFormOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest border border-slate-100">Cancel</button>

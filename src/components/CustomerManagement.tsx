@@ -35,10 +35,10 @@ export default function CustomerManagement() {
   });
 
   // Sale form
-  const [saleForm, setSaleForm] = useState({
+  const [saleForm, setSaleForm] = useState<any>({
     land_id: '',
     total_price: 0,
-    paid_amount: 0,
+    paid_amount: '',
     method: 'mpesa',
     transaction_ref: ''
   });
@@ -126,7 +126,7 @@ export default function CustomerManagement() {
         customer_id: selectedCustomer.id
       });
       setSaleOpen(false);
-      setSaleForm({ land_id: '', total_price: 0, paid_amount: 0, method: 'mpesa', transaction_ref: '' });
+      setSaleForm({ land_id: '', total_price: 0, paid_amount: '', method: 'mpesa', transaction_ref: '' });
       load();
       alert('Sale recorded! Awaiting admin approval for payment.');
     } catch (err) {
@@ -406,7 +406,7 @@ export default function CustomerManagement() {
                        <input 
                          type="number"
                          value={saleForm.paid_amount}
-                         onChange={e => setSaleForm({...saleForm, paid_amount: Number(e.target.value || 0)})}
+                         onChange={e => setSaleForm({...saleForm, paid_amount: e.target.value})}
                          className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 ring-brand-orange/20 outline-none text-brand-orange"
                        />
                     </div>

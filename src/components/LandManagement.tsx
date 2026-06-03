@@ -36,40 +36,40 @@ export default function LandManagement() {
 
   // Cost tracking logs associated with property
   const [propertyCosts, setPropertyCosts] = useState<any[]>([]);
-  const [newCostForm, setNewCostForm] = useState({
+  const [newCostForm, setNewCostForm] = useState<any>({
     category: 'survey',
-    amount: 0,
+    amount: '',
     description: ''
   });
 
-  const [propForm, setPropForm] = useState({
+  const [propForm, setPropForm] = useState<any>({
     name: '',
     location: '',
     total_size: '',
-    buying_price: 0,
-    amount_paid_to_seller: 0,
+    buying_price: '',
+    amount_paid_to_seller: '',
     ownership_status: 'partial',
     notes: ''
   });
 
-  const [plotForm, setPlotForm] = useState({
+  const [plotForm, setPlotForm] = useState<any>({
     parent_property_id: '',
     plot_number: '',
     location: '',
     size: '',
     acquisition_type: 'purchase',
     status: 'available',
-    total_cost: 0,
+    total_cost: '',
     title_deed_status: 'pending'
   });
 
-  const [editPlotForm, setEditPlotForm] = useState({
+  const [editPlotForm, setEditPlotForm] = useState<any>({
     parent_property_id: '',
     plot_number: '',
     location: '',
     size: '',
     acquisition_type: 'purchase',
-    total_cost: 0,
+    total_cost: '',
     title_deed_status: 'pending',
     title_deed_url: '',
     status: 'available'
@@ -105,7 +105,7 @@ export default function LandManagement() {
     try {
       await api.properties.create(propForm);
       setAddPropOpen(false);
-      setPropForm({ name: '', location: '', total_size: '', buying_price: 0, amount_paid_to_seller: 0, ownership_status: 'partial', notes: '' });
+      setPropForm({ name: '', location: '', total_size: '', buying_price: '', amount_paid_to_seller: '', ownership_status: 'partial', notes: '' });
       loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error creating property');
@@ -139,7 +139,7 @@ export default function LandManagement() {
   }
 
   function resetPropertyForm() {
-    setPropForm({ name: '', location: '', total_size: '', buying_price: 0, amount_paid_to_seller: 0, ownership_status: 'partial', notes: '' });
+    setPropForm({ name: '', location: '', total_size: '', buying_price: '', amount_paid_to_seller: '', ownership_status: 'partial', notes: '' });
   }
 
   async function handlePlotSubmit(e: React.FormEvent) {
@@ -147,7 +147,7 @@ export default function LandManagement() {
     try {
       await api.lands.create(plotForm);
       setAddPlotOpen(false);
-      setPlotForm({ parent_property_id: '', plot_number: '', location: '', size: '', acquisition_type: 'purchase', status: 'available', total_cost: 0, title_deed_status: 'pending' });
+      setPlotForm({ parent_property_id: '', plot_number: '', location: '', size: '', acquisition_type: 'purchase', status: 'available', total_cost: '', title_deed_status: 'pending' });
       loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error creating plot');
@@ -161,7 +161,7 @@ export default function LandManagement() {
         ...newCostForm,
         parent_property_id: selectedProperty.id
       });
-      setNewCostForm({ category: 'survey', amount: 0, description: '' });
+      setNewCostForm({ category: 'survey', amount: '', description: '' });
       loadPropertyCosts(selectedProperty.id);
       alert('Cost recorded and logged for admin verification.');
     } catch (err) {
@@ -468,10 +468,10 @@ export default function LandManagement() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Total Size" value={propForm.total_size} onChange={v => setPropForm({...propForm, total_size: v})} placeholder="e.g. 50 Acres" />
-                  <Input label="Buy Price (KES)" type="number" value={String(propForm.buying_price)} onChange={v => setPropForm({...propForm, buying_price: parseInt(v)})} placeholder="10000000" />
+                  <Input label="Buy Price (KES)" type="number" value={propForm.buying_price} onChange={(v: string) => setPropForm({...propForm, buying_price: v})} placeholder="10000000" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Paid To Seller (KES)" type="number" value={String(propForm.amount_paid_to_seller)} onChange={v => setPropForm({...propForm, amount_paid_to_seller: parseInt(v)})} placeholder="0" />
+                  <Input label="Paid To Seller (KES)" type="number" value={propForm.amount_paid_to_seller} onChange={(v: string) => setPropForm({...propForm, amount_paid_to_seller: v})} placeholder="0" />
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ownership Status</label>
                     <select
@@ -513,10 +513,10 @@ export default function LandManagement() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Total Size" value={propForm.total_size} onChange={v => setPropForm({...propForm, total_size: v})} placeholder="e.g. 50 Acres" />
-                  <Input label="Buy Price (KES)" type="number" value={String(propForm.buying_price)} onChange={v => setPropForm({...propForm, buying_price: parseInt(v)})} placeholder="10000000" />
+                  <Input label="Buy Price (KES)" type="number" value={propForm.buying_price} onChange={(v: string) => setPropForm({...propForm, buying_price: v})} placeholder="10000000" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Paid To Seller (KES)" type="number" value={String(propForm.amount_paid_to_seller)} onChange={v => setPropForm({...propForm, amount_paid_to_seller: parseInt(v)})} placeholder="0" />
+                  <Input label="Paid To Seller (KES)" type="number" value={propForm.amount_paid_to_seller} onChange={(v: string) => setPropForm({...propForm, amount_paid_to_seller: v})} placeholder="0" />
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ownership Status</label>
                     <select
@@ -568,7 +568,7 @@ export default function LandManagement() {
                   <Input label="Size" value={plotForm.size} onChange={v => setPlotForm({...plotForm, size: v})} placeholder="e.g. 50x100" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Selling Price (KES)" type="number" value={String(plotForm.total_cost)} onChange={v => setPlotForm({...plotForm, total_cost: parseInt(v)})} placeholder="1500000" />
+                  <Input label="Selling Price (KES)" type="number" value={plotForm.total_cost} onChange={(v: string) => setPlotForm({...plotForm, total_cost: v})} placeholder="1500000" />
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Location Override</label>
                     <input 
@@ -630,7 +630,7 @@ export default function LandManagement() {
                         type="number"
                         required
                         value={newCostForm.amount}
-                        onChange={e => setNewCostForm({...newCostForm, amount: parseInt(e.target.value)})}
+                        onChange={e => setNewCostForm({...newCostForm, amount: e.target.value})}
                         placeholder="e.g. 50000"
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none text-brand-blue focus:ring-1 ring-brand-blue/20"
                       />
@@ -738,7 +738,7 @@ export default function LandManagement() {
                       required
                       type="number"
                       value={editPlotForm.total_cost}
-                      onChange={e => setEditPlotForm({...editPlotForm, total_cost: parseInt(e.target.value)})}
+                      onChange={e => setEditPlotForm({...editPlotForm, total_cost: e.target.value})}
                       className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 ring-brand-blue/10 transition-all outline-none text-brand-blue"
                     />
                   </div>
