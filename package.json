@@ -7,7 +7,8 @@
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.mjs",
     "start": "node dist/server.mjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "seed": "tsx src/server/seedAdmin.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -25,7 +26,7 @@
     "motion": "^12.23.24",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
-    "pg": "^8.20.0",
+    "mysql2": "^3.9.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.15.1",

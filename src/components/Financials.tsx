@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import Reports from '../components/Reports';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -26,7 +26,7 @@ import { Buffer } from 'buffer';
 
 export default function Financials() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'customer-payments' | 'office-expenses' | 'property-costs' | 'sales-invoices' | 'payroll' | 'debts-payables' | 'petty-cash'>('customer-payments');
+  const [activeTab, setActiveTab] = useState<'customer-payments' | 'office-expenses' | 'property-costs' | 'sales-invoices' | 'payroll' | 'debts-payables' | 'petty-cash' | 'reports'>('customer-payments');
   const [data, setData] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
@@ -60,15 +60,16 @@ export default function Financials() {
   // Forms
   const [paymentForm, setPaymentForm] = useState({
     sale_id: '',
-    amount: 0,
+    amount: '',
     method: 'mpesa',
     transaction_ref: '',
-    description: ''
+    description: '',
+    reference_number: ''
   });
 
   const [expenseForm, setExpenseForm] = useState({
     category: 'rent',
-    amount: 0,
+    amount: '',
     description: ''
   });
 
@@ -76,17 +77,17 @@ export default function Financials() {
     parent_property_id: '',
     land_id: '',
     category: 'survey',
-    amount: 0,
+    amount: '',
     description: ''
   });
 
   const [payrollForm, setPayrollForm] = useState({
     staff_name: '',
     month_year: 'August 2025',
-    basic: 0,
-    commission: 0,
-    transport: 0,
-    deductions: 0,
+    basic: '',
+    commission: '',
+    transport: '',
+    deductions: '',
     gross_amount: 0,
     net_amount: 0,
     reporting_date: ''
@@ -95,8 +96,8 @@ export default function Financials() {
   const [debtForm, setDebtForm] = useState({
     creditor_name: '',
     description: '',
-    total_amount: 0,
-    paid_amount: 0,
+    total_amount: '',
+    paid_amount: '',
     balance: 0,
     date: '',
     payment_method: 'CASH',
@@ -108,13 +109,13 @@ export default function Financials() {
     type: 'credit',
     description: '',
     ref_number: '',
-    amount: 0
+    amount: ''
   });
 
   const [salaryPaymentForm, setSalaryPaymentForm] = useState({
     payroll_id: '',
     staff_name: '',
-    amount: 0,
+    amount: '',
     payment_method: 'mpesa',
     transaction_ref: ''
   });
@@ -310,10 +311,11 @@ export default function Financials() {
         description: paymentForm.description || `Installment payment for sale #${paymentForm.sale_id}`,
         reference_id: parseInt(paymentForm.sale_id),
         reference_type: 'sale',
-        transaction_ref: paymentForm.transaction_ref
+        transaction_ref: paymentForm.transaction_ref,
+        reference_number: paymentForm.reference_number || null
       });
       setAddPaymentOpen(false);
-      setPaymentForm({ sale_id: '', amount: 0, method: 'mpesa', transaction_ref: '', description: '' });
+      setPaymentForm({ sale_id: '', amount: 0, method: 'mpesa', transaction_ref: '', description: '', reference_number: '' });
       loadData();
       alert('Installment payment recorded and awaiting admin approval.');
     } catch (err) {

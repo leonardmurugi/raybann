@@ -1,301 +1,270 @@
-import pg from 'pg';
-const { Pool } = pg;
+// src/server/db.ts
+import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+// Create a MySQL pool using environment variables.
+// cPanel typically provides localhost access; you can also use a full URL via DATABASE_URL.
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST ?? 'localhost',
+  port: Number(process.env.MYSQL_PORT ?? 3306),
+  user: process.env.MYSQL_USER ?? process.env.DB_USER,
+  password: process.env.MYSQL_PASSWORD ?? process.env.DB_PASSWORD,
+  database: process.env.MYSQL_DATABASE ?? process.env.DB_NAME,
+  // Important for security – limit connections and enable SSL if required.
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
+/**
+ * Initialise the database schema. This runs on server start.
+ * It creates all tables if they do not already exist, matching the previous PostgreSQL structure.
+ */
 export const dbInit = async () => {
   try {
-    const client = await pool.connect();
-    console.log('Connected to PostgreSQL');
-    
+    const connection = await pool.getConnection();
+    console.log('Connected to MySQL');
+
     // Users table
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('admin', 'reception', 'field')),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        role ENUM('admin','reception','field') NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     // Parent Properties (Main Land)
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS parent_properties (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        location TEXT NOT NULL,
-        total_size TEXT NOT NULL,
-        ownership_status TEXT NOT NULL DEFAULT 'partial', -- partial, fully_owned
-        buying_price NUMERIC NOT NULL DEFAULT 0,
-        amount_paid_to_seller NUMERIC NOT NULL DEFAULT 0,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        total_size VARCHAR(255) NOT NULL,
+        ownership_status ENUM('partial','fully_owned') NOT NULL DEFAULT 'partial',
+        buying_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+        amount_paid_to_seller DECIMAL(15,2) NOT NULL DEFAULT 0,
         notes TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+      // Customers table (must be created before tables that reference it)
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS customers (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255),
+          phone VARCHAR(50) NOT NULL,
+          id_number VARCHAR(100) UNIQUE NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
 
-    // Lands/Plots table (Subdivisions)
-    await client.query(`
+
+    // Lands / Plots table (Subdivisions)
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS lands (
-        id SERIAL PRIMARY KEY,
-        parent_property_id INTEGER REFERENCES parent_properties(id),
-        plot_number TEXT UNIQUE NOT NULL,
-        location TEXT NOT NULL,
-        size TEXT NOT NULL,
-        acquisition_type TEXT NOT NULL CHECK (acquisition_type IN ('purchase', 'owned')),
-        status TEXT NOT NULL CHECK (status IN ('available', 'reserved', 'sold', 'pending')),
-        total_cost NUMERIC NOT NULL DEFAULT 0, -- Selling price
-        paid_amount NUMERIC NOT NULL DEFAULT 0,
-        customer_id INTEGER,
-        title_deed_status TEXT NOT NULL DEFAULT 'pending', -- pending, processed, issued
-        title_deed_url TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        parent_property_id INT,
+        plot_number VARCHAR(255) UNIQUE NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        size VARCHAR(255) NOT NULL,
+        acquisition_type ENUM('purchase','owned') NOT NULL,
+        status ENUM('available','reserved','sold','pending') NOT NULL,
+        total_cost DECIMAL(15,2) NOT NULL DEFAULT 0,
+        paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+        customer_id INT,
+        title_deed_status ENUM('pending','processed','issued') NOT NULL DEFAULT 'pending',
+        title_deed_url VARCHAR(512),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (parent_property_id) REFERENCES parent_properties(id),
+        FOREIGN KEY (customer_id) REFERENCES customers(id)
       )
     `);
 
-    // Additional Costs (Survey, Legal, etc.)
-    await client.query(`
+    // Property Costs (Survey, Legal, etc.)
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS property_costs (
-        id SERIAL PRIMARY KEY,
-        parent_property_id INTEGER REFERENCES parent_properties(id),
-        land_id INTEGER REFERENCES lands(id),
-        category TEXT NOT NULL, -- survey, legal, subdivision, title_processing
-        amount NUMERIC NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        parent_property_id INT,
+        land_id INT,
+        category VARCHAR(255) NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
         description TEXT,
         is_approved BOOLEAN DEFAULT FALSE,
-        approved_by INTEGER REFERENCES users(id),
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        approved_by INT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (parent_property_id) REFERENCES parent_properties(id),
+        FOREIGN KEY (land_id) REFERENCES lands(id),
+        FOREIGN KEY (approved_by) REFERENCES users(id)
       )
     `);
 
-    // Customers table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS customers (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT,
-        phone TEXT NOT NULL,
-        id_number TEXT UNIQUE NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    // (customers table already created above)
 
     // Sales table
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS sales (
-        id SERIAL PRIMARY KEY,
-        land_id INTEGER REFERENCES lands(id),
-        customer_id INTEGER REFERENCES customers(id),
-        total_price NUMERIC NOT NULL,
-        paid_amount NUMERIC NOT NULL DEFAULT 0,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        land_id INT,
+        customer_id INT,
+        total_price DECIMAL(15,2) NOT NULL,
+        paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
         is_approved BOOLEAN DEFAULT FALSE,
-        approved_by INTEGER REFERENCES users(id),
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        approved_by INT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (land_id) REFERENCES lands(id),
+        FOREIGN KEY (customer_id) REFERENCES customers(id),
+        FOREIGN KEY (approved_by) REFERENCES users(id)
       )
     `);
 
     // Payments table (Transactions)
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS payments (
-        id SERIAL PRIMARY KEY,
-        type TEXT NOT NULL CHECK (type IN ('received', 'made')),
-        amount NUMERIC NOT NULL,
-        method TEXT NOT NULL, -- cash, mpesa, bank
-        category TEXT NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type ENUM('received','made') NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        method VARCHAR(50) NOT NULL,
+        category VARCHAR(255) NOT NULL,
         description TEXT,
-        reference_id INTEGER,
-        reference_type TEXT,
-        transaction_ref TEXT, -- M-Pesa code etc
+        reference_id INT,
+        reference_type VARCHAR(255),
+        transaction_ref VARCHAR(255),
+        reference_number VARCHAR(255),
         is_approved BOOLEAN DEFAULT FALSE,
-        approved_by INTEGER REFERENCES users(id),
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        created_by INTEGER REFERENCES users(id)
+        approved_by INT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_by INT,
+        FOREIGN KEY (approved_by) REFERENCES users(id),
+        FOREIGN KEY (created_by) REFERENCES users(id)
       )
     `);
 
     // Receipts table
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS receipts (
-        id SERIAL PRIMARY KEY,
-        receipt_number TEXT UNIQUE NOT NULL,
-        payment_id INTEGER REFERENCES payments(id),
-        status TEXT NOT NULL DEFAULT 'pending', -- pending, official
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        receipt_number VARCHAR(255) UNIQUE NOT NULL,
+        payment_id INT,
+        status ENUM('pending','official') NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (payment_id) REFERENCES payments(id)
+      )
+    `);
 
-      -- Documents table for storing uploaded blobs
+    // Documents table – stores uploaded blobs securely
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS documents (
-        id SERIAL PRIMARY KEY,
-        customer_id INTEGER REFERENCES customers(id),
-        type TEXT NOT NULL CHECK (type IN ('saleAgreement','idDocument','kraCert','passportPhoto','titleDeed')),
-        blob BYTEA NOT NULL,
-        uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT,
+        type ENUM('saleAgreement','idDocument','kraCert','passportPhoto','titleDeed') NOT NULL,
+        file_blob LONGBLOB NOT NULL,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (customer_id) REFERENCES customers(id)
+      )
     `);
 
     // Expenses table (Company Operations)
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS expenses (
-        id SERIAL PRIMARY KEY,
-        category TEXT NOT NULL, -- rent, salary, transport, utilities
-        amount NUMERIC NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category VARCHAR(255) NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
         description TEXT,
         is_approved BOOLEAN DEFAULT FALSE,
-        approved_by INTEGER REFERENCES users(id),
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        operator_id INTEGER REFERENCES users(id)
+        approved_by INT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        operator_id INT,
+        FOREIGN KEY (approved_by) REFERENCES users(id),
+        FOREIGN KEY (operator_id) REFERENCES users(id)
       )
     `);
 
     // Inventory table
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS inventory (
-        id SERIAL PRIMARY KEY,
-        item_name TEXT NOT NULL,
-        quantity INTEGER NOT NULL DEFAULT 0,
-        unit_price NUMERIC NOT NULL DEFAULT 0,
-        category TEXT,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        item_name VARCHAR(255) NOT NULL,
+        quantity INT NOT NULL DEFAULT 0,
+        unit_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+        category VARCHAR(255),
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
 
     // Debts & Payables (Vendor liabilities / land owners)
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS debts_payables (
-        id SERIAL PRIMARY KEY,
-        creditor_name TEXT NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        creditor_name VARCHAR(255) NOT NULL,
         description TEXT,
-        total_amount NUMERIC NOT NULL DEFAULT 0,
-        paid_amount NUMERIC NOT NULL DEFAULT 0,
-        balance NUMERIC NOT NULL DEFAULT 0,
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        payment_method TEXT,
-        status TEXT DEFAULT 'pending'
+        total_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+        paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+        balance DECIMAL(15,2) NOT NULL DEFAULT 0,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        payment_method VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'pending'
       )
     `);
 
-    // Payroll Table
-    await client.query(`
+    // Payroll table
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS payroll (
-        id SERIAL PRIMARY KEY,
-        staff_name TEXT NOT NULL,
-        month_year TEXT NOT NULL,
-        basic NUMERIC NOT NULL DEFAULT 0,
-        commission NUMERIC NOT NULL DEFAULT 0,
-        transport NUMERIC NOT NULL DEFAULT 0,
-        deductions NUMERIC NOT NULL DEFAULT 0,
-        gross_amount NUMERIC NOT NULL DEFAULT 0,
-        net_amount NUMERIC NOT NULL DEFAULT 0,
-        reporting_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_name VARCHAR(255) NOT NULL,
+        month_year VARCHAR(20) NOT NULL,
+        basic DECIMAL(15,2) NOT NULL DEFAULT 0,
+        commission DECIMAL(15,2) NOT NULL DEFAULT 0,
+        transport DECIMAL(15,2) NOT NULL DEFAULT 0,
+        deductions DECIMAL(15,2) NOT NULL DEFAULT 0,
+        gross_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+        net_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+        reporting_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         is_paid BOOLEAN DEFAULT FALSE,
-        paid_date TIMESTAMP WITH TIME ZONE,
-        paid_method TEXT
+        paid_date TIMESTAMP NULL,
+        paid_method VARCHAR(255)
       )
     `);
 
-    // Salary Payments Table (Disbursements)
-    await client.query(`
+    // Salary Payments table (Disbursements)
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS salary_payments (
-        id SERIAL PRIMARY KEY,
-        payroll_id INTEGER REFERENCES payroll(id),
-        staff_name TEXT NOT NULL,
-        amount NUMERIC NOT NULL,
-        payment_method TEXT NOT NULL,
-        transaction_ref TEXT,
-        payment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        payroll_id INT,
+        staff_name VARCHAR(255) NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        payment_method VARCHAR(255) NOT NULL,
+        transaction_ref VARCHAR(255),
+        payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         is_approved BOOLEAN DEFAULT FALSE,
-        approved_by INTEGER REFERENCES users(id),
-        created_by INTEGER REFERENCES users(id)
+        approved_by INT,
+        created_by INT,
+        FOREIGN KEY (payroll_id) REFERENCES payroll(id),
+        FOREIGN KEY (approved_by) REFERENCES users(id),
+        FOREIGN KEY (created_by) REFERENCES users(id)
       )
     `);
 
-    // Petty Cash Table
-    await client.query(`
+    // Petty Cash table
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS petty_cash (
-        id SERIAL PRIMARY KEY,
-        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        type TEXT NOT NULL CHECK (type IN ('debit', 'credit')),
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        type ENUM('debit','credit') NOT NULL,
         description TEXT NOT NULL,
-        ref_number TEXT,
-        amount NUMERIC NOT NULL DEFAULT 0
+        ref_number VARCHAR(255),
+        amount DECIMAL(15,2) NOT NULL DEFAULT 0
       )
     `);
 
-    // --- MIGRATIONS ---
-    // Ensure existing lands tables have all columns used by current subdivision flows.
-    await client.query(`DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='parent_property_id') THEN
-        ALTER TABLE lands ADD COLUMN parent_property_id INTEGER REFERENCES parent_properties(id);
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='paid_amount') THEN
-        ALTER TABLE lands ADD COLUMN paid_amount NUMERIC NOT NULL DEFAULT 0;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='customer_id') THEN
-        ALTER TABLE lands ADD COLUMN customer_id INTEGER;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='title_deed_status') THEN
-        ALTER TABLE lands ADD COLUMN title_deed_status TEXT NOT NULL DEFAULT 'pending';
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='title_deed_url') THEN
-        ALTER TABLE lands ADD COLUMN title_deed_url TEXT;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lands' AND column_name='updated_at') THEN
-        ALTER TABLE lands ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-      END IF;
-    END $$;`);
-    const tablesToMigrate = ['sales', 'payments', 'expenses', 'property_costs'];
-    for (const table of tablesToMigrate) {
-      // Add is_approved
-      await client.query(`
-        DO $$ 
-        BEGIN 
-          BEGIN
-            ALTER TABLE ${table} ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
-          EXCEPTION
-            WHEN duplicate_column THEN RAISE NOTICE 'column is_approved already exists in ${table}.';
-          END;
-        END $$;
-      `);
-      
-      // Add approved_by
-      await client.query(`
-        DO $$ 
-        BEGIN 
-          BEGIN
-            ALTER TABLE ${table} ADD COLUMN approved_by INTEGER REFERENCES users(id);
-          EXCEPTION
-            WHEN duplicate_column THEN RAISE NOTICE 'column approved_by already exists in ${table}.';
-          END;
-        END $$;
-      `);
-    }
-
-    // Migrate payroll table to add payment tracking columns
-    await client.query(`DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='payroll' AND column_name='is_paid') THEN
-        ALTER TABLE payroll ADD COLUMN is_paid BOOLEAN DEFAULT FALSE;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='payroll' AND column_name='paid_date') THEN
-        ALTER TABLE payroll ADD COLUMN paid_date TIMESTAMP WITH TIME ZONE;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='payroll' AND column_name='paid_method') THEN
-        ALTER TABLE payroll ADD COLUMN paid_method TEXT;
-      END IF;
-    END $$;`);
-
-    client.release();
+    connection.release();
     console.log('Database schema initialized');
   } catch (err) {
     console.error('Error initializing database:', err);

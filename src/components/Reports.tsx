@@ -26,6 +26,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { groupByWeek, groupByMonth } from '../lib/reportUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 type ReportType = 'financial-cashflow' | 'collections-payments' | 'office-expenses' | 'inventory-subdivisions' | 'client-sales-statements' | 'pending-approvals-trail' | 'payroll-hr' | 'vendor-debts' | 'petty-cash-ledger';
@@ -40,6 +41,8 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // New period selector state
+  const [reportPeriod, setReportPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
   // Report Builder State
   const [selectedReport, setSelectedReport] = useState<ReportType>('financial-cashflow');
@@ -173,7 +176,8 @@ export default function Reports() {
         payroll: payrollListState,
         debts: debtsListState,
         pettyCash: pettyCashListState
-      }
+      },
+      reportPeriod
     );
   };
 
@@ -185,7 +189,8 @@ export default function Reports() {
     propertyId: string,
     status: string,
     approvalStatus: string,
-    datasets: { props: any[], cust: any[], lands: any[], s: any[], p: any[], ex: any[], pc: any[], app: any, payroll?: any[], debts?: any[], pettyCash?: any[] }
+    datasets: { props: any[], cust: any[], lands: any[], s: any[], p: any[], ex: any[], pc: any[], app: any, payroll?: any[], debts?: any[], pettyCash?: any[] },
+    period: 'daily' | 'weekly' | 'monthly' = 'daily'
   ) => {
     const { props, cust, lands: plotList, s: salesList, p: pList, ex: eList, pc: pcList, app, payroll = [], debts = [], pettyCash = [] } = datasets;
     
@@ -229,6 +234,11 @@ export default function Reports() {
         isWithinDates(item.date) &&
         (approvalStatus === 'all' ? true : (approvalStatus === 'approved' ? item.is_approved : !item.is_approved))
       );
+      // Adjust title for selected period
+      if (period !== 'daily') {
+        const periodLabel = period.charAt(0).toUpperCase() + period.slice(1);
+        result.reportTitle = `${periodLabel} ${result.reportTitle}`;
+      }
 
       const filteredExpenses = eList.filter(item => 
         isWithinDates(item.date) &&
@@ -289,7 +299,7 @@ export default function Reports() {
       // Sort by date newest first
       combinedRows.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
-      result.rows = combinedRows.map(row => [
+      const rows = combinedRows.map(row => [
         new Date(row.date).toLocaleDateString(),
         row.ref,
         <span className="capitalize">{row.category}</span>,
@@ -297,6 +307,24 @@ export default function Reports() {
         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${row.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>{row.status}</span>,
         <span className={`font-mono font-bold ${row.isCredit ? 'text-emerald-600':'text-rose-600'}`}>{row.amount.toLocaleString()}</span>
       ]);
+
+      if (period !== 'daily') {
+        // Group rows by week or month based on selected period.
+        const groups: Record<string, any[]> = {};
+        combinedRows.forEach((r, i) => {
+          const d = new Date(r.date);
+          const key = period === 'monthly'
+            ? `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`
+            : `${d.getFullYear()}-W${Math.ceil(d.getDate() / 7)}`;
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(rows[i]);
+        });
+        // Preserve chronological order of groups
+        const sortedKeys = Object.keys(groups).sort();
+        result.rows = sortedKeys.flatMap(k => [{ group: k }, ...groups[k]]);
+      } else {
+        result.rows = rows;
+      }
 
       result.totals = {
         label: 'Net Balance',
@@ -864,6 +892,28 @@ export default function Reports() {
                   <option value="petty-cash-ledger">Petty Cash Ledger Book Accounts</option>
                 </select>
               </div>
+              
+              {/* Period Selector */}
+              <div className="space-y-2 mt-4">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">2. Report Period</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={`px-3 py-1 text-xs rounded-full ${reportPeriod === 'daily' ? 'bg-brand-blue text-white' : 'bg-slate-200 text-slate-800'}`}
+                    onClick={() => setReportPeriod('daily')}
+                  >Daily</button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1 text-xs rounded-full ${reportPeriod === 'weekly' ? 'bg-brand-blue text-white' : 'bg-slate-200 text-slate-800'}`}
+                    onClick={() => setReportPeriod('weekly')}
+                  >Weekly</button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1 text-xs rounded-full ${reportPeriod === 'monthly' ? 'bg-brand-blue text-white' : 'bg-slate-200 text-slate-800'}`}
+                    onClick={() => setReportPeriod('monthly')}
+                  >Monthly</button>
+                </div>
+              </div>
 
               {/* Select Property Range */}
               <div className="space-y-2">
@@ -1038,14 +1088,22 @@ export default function Reports() {
                           </td>
                         </tr>
                       ) : (
-                        generatedReport.rows.map((row: any[], i: number) => (
-                          <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                            {row.map((cell: any, key: number) => (
-                              <td key={key} className="p-4 align-middle text-slate-700 font-medium">
-                                {cell}
+                        generatedReport.rows.map((row: any, i: number) => (
+                          row.group ? (
+                            <tr key={i} className="bg-slate-100">
+                              <td colSpan={generatedReport.headers.length} className="p-2 font-bold text-slate-800">
+                                {row.group}
                               </td>
-                            ))}
-                          </tr>
+                            </tr>
+                          ) : (
+                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                              {row.map((cell: any, key: number) => (
+                                <td key={key} className="p-4 align-middle text-slate-700 font-medium">
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          )
                         ))
                       )}
                     </tbody>
