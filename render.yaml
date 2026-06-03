@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: raybann-app
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false  # Set in Render dashboard from bunny.net
+      - key: DATABASE_AUTH_TOKEN
+        sync: false  # Set in Render dashboard if required by bunny.net
+      - key: JWT_SECRET
+        sync: false
+      - key: CSRF_SECRET
+        sync: false
+      - key: PORT
+        value: 3000

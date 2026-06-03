@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@libsql/client": "^0.7.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "bcryptjs": "^3.0.3",
@@ -26,7 +27,6 @@
     "motion": "^12.23.24",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
-    "mysql2": "^3.9.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.15.1",
