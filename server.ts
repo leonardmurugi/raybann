@@ -186,6 +186,12 @@ app.get("/api/lands", authenticateToken, async (req, res) => {
 app.post("/api/lands", authenticateToken, async (req, res) => {
   const { parent_property_id, plot_number, location, size, acquisition_type, status, total_cost, title_deed_status, title_deed_url } = req.body;
   try {
+    // Check if plot_number already exists
+    const [existing] = await pool.query('SELECT id FROM lands WHERE plot_number = ?', [plot_number]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Plot number already exists' });
+    }
+
     const [, metadata] = await pool.query(
       "INSERT INTO lands (parent_property_id, plot_number, location, size, acquisition_type, status, total_cost, title_deed_status, title_deed_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [

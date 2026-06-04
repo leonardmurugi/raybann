@@ -228,7 +228,3 @@ function Input({ label, value, onChange, placeholder, type = 'text' }: any) {
     </div>
   );
 }
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
-}

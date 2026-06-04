@@ -95,6 +95,24 @@ const pool = {
     // No-op for LibSQL since connection pooling is handled internally
     return Promise.resolve();
   },
+
+  async beginTransaction() {
+    // LibSQL/bunny.net HTTP client doesn't support transactions via API
+    // This is a no-op for compatibility
+    return Promise.resolve();
+  },
+
+  async commit() {
+    // LibSQL/bunny.net HTTP client doesn't support transactions via API
+    // This is a no-op for compatibility
+    return Promise.resolve();
+  },
+
+  async rollback() {
+    // LibSQL/bunny.net HTTP client doesn't support transactions via API
+    // This is a no-op for compatibility
+    return Promise.resolve();
+  },
 };
 
 /**
