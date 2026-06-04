@@ -71,11 +71,11 @@ app.post("/api/auth/register", async (req, res) => {
   const { email, password, name, role } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)",
       [email, hashedPassword, name, role || 'reception']
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT id, email, name, role FROM users WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -115,7 +115,7 @@ app.get("/api/properties", authenticateToken, async (req, res) => {
 app.post("/api/properties", authenticateToken, async (req, res) => {
   const { name, location, total_size, ownership_status, buying_price, amount_paid_to_seller, notes } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "INSERT INTO parent_properties (name, location, total_size, ownership_status, buying_price, amount_paid_to_seller, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         name ?? '', 
@@ -127,7 +127,7 @@ app.post("/api/properties", authenticateToken, async (req, res) => {
         notes ?? null
       ]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM parent_properties WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -139,13 +139,13 @@ app.put("/api/properties/:id", authenticateToken, requireAdmin, async (req, res)
   const { id } = req.params;
   const { name, location, total_size, ownership_status, buying_price, amount_paid_to_seller, notes } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `UPDATE parent_properties
        SET name = ?, location = ?, total_size = ?, ownership_status = ?, buying_price = ?, amount_paid_to_seller = ?, notes = ?
        WHERE id = ?`,
       [name, location, total_size, ownership_status || 'partial', buying_price || 0, amount_paid_to_seller || 0, notes || null, id]
     );
-    if ((result as any).affectedRows === 0) return res.status(404).json({ error: "Property not found" });
+    if (metadata.affectedRows === 0) return res.status(404).json({ error: "Property not found" });
     const [rows] = await pool.query("SELECT * FROM parent_properties WHERE id = ?", [id]);
     res.json((rows as any[])[0]);
   } catch (err: any) {
@@ -186,7 +186,7 @@ app.get("/api/lands", authenticateToken, async (req, res) => {
 app.post("/api/lands", authenticateToken, async (req, res) => {
   const { parent_property_id, plot_number, location, size, acquisition_type, status, total_cost, title_deed_status, title_deed_url } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "INSERT INTO lands (parent_property_id, plot_number, location, size, acquisition_type, status, total_cost, title_deed_status, title_deed_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         parent_property_id ? parseInt(parent_property_id) : null,
@@ -200,7 +200,7 @@ app.post("/api/lands", authenticateToken, async (req, res) => {
         title_deed_url ?? null
       ]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM lands WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -212,14 +212,14 @@ app.put("/api/lands/:id", authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { parent_property_id, plot_number, location, size, acquisition_type, total_cost, title_deed_status, title_deed_url, status } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `UPDATE lands
        SET parent_property_id = ?, plot_number = ?, location = ?, size = ?, acquisition_type = ?, total_cost = ?,
            title_deed_status = ?, title_deed_url = ?, status = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [parent_property_id ? parseInt(parent_property_id) : null, plot_number, location, size, acquisition_type || 'purchase', total_cost || 0, title_deed_status || 'pending', title_deed_url || null, status || 'available', id]
     );
-    if ((result as any).affectedRows === 0) return res.status(404).json({ error: "Plot not found" });
+    if (metadata.affectedRows === 0) return res.status(404).json({ error: "Plot not found" });
     const [rows] = await pool.query("SELECT * FROM lands WHERE id = ?", [id]);
     res.json((rows as any[])[0]);
   } catch (err: any) {
@@ -256,11 +256,11 @@ app.get("/api/inventory", authenticateToken, requireAdmin, async (req, res) => {
 app.post("/api/inventory", authenticateToken, requireAdmin, async (req, res) => {
   const { item_name, quantity, unit_price, category } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "INSERT INTO inventory (item_name, quantity, unit_price, category) VALUES (?, ?, ?, ?)",
       [item_name, quantity, unit_price, category]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM inventory WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -306,11 +306,11 @@ app.get("/api/customers", authenticateToken, async (req, res) => {
 app.post("/api/customers", authenticateToken, async (req, res) => {
   const { name, email, phone, id_number } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "INSERT INTO customers (name, email, phone, id_number) VALUES (?, ?, ?, ?)",
       [name, email, phone, id_number]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM customers WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -322,11 +322,11 @@ app.put("/api/customers/:id", authenticateToken, requireAdmin, async (req, res) 
   const { id } = req.params;
   const { name, email, phone, id_number } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "UPDATE customers SET name = ?, email = ?, phone = ?, id_number = ? WHERE id = ?",
       [name, email || null, phone, id_number, id]
     );
-    if ((result as any).affectedRows === 0) return res.status(404).json({ error: "Customer not found" });
+    if (metadata.affectedRows === 0) return res.status(404).json({ error: "Customer not found" });
     const [rows] = await pool.query("SELECT * FROM customers WHERE id = ?", [id]);
     res.json((rows as any[])[0]);
   } catch (err: any) {
@@ -785,11 +785,11 @@ app.get("/api/expenses", authenticateToken, async (req, res) => {
 app.post("/api/expenses", authenticateToken, async (req, res) => {
   const { category, amount, description } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "INSERT INTO expenses (category, amount, description, operator_id, is_approved) VALUES (?, ?, ?, ?, FALSE)",
       [category, amount, description, (req as any).user.id]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM expenses WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -801,11 +801,11 @@ app.put("/api/expenses/:id", authenticateToken, requireAdmin, async (req, res) =
   const { id } = req.params;
   const { category, amount, description, is_approved } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "UPDATE expenses SET category = ?, amount = ?, description = ?, is_approved = ? WHERE id = ?",
       [category, amount || 0, description || null, !!is_approved, id]
     );
-    if ((result as any).affectedRows === 0) return res.status(404).json({ error: "Expense not found" });
+    if (metadata.affectedRows === 0) return res.status(404).json({ error: "Expense not found" });
     const [rows] = await pool.query("SELECT * FROM expenses WHERE id = ?", [id]);
     res.json((rows as any[])[0]);
   } catch (err: any) {
@@ -855,7 +855,7 @@ app.get("/api/property-costs", authenticateToken, async (req, res) => {
 app.post("/api/property-costs", authenticateToken, async (req, res) => {
   const { parent_property_id, land_id, category, amount, description } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       "INSERT INTO property_costs (parent_property_id, land_id, category, amount, description, is_approved) VALUES (?, ?, ?, ?, ?, FALSE)",
       [
         parent_property_id ? parseInt(parent_property_id) : null,
@@ -865,7 +865,7 @@ app.post("/api/property-costs", authenticateToken, async (req, res) => {
         description
       ]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM property_costs WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -877,13 +877,13 @@ app.put("/api/property-costs/:id", authenticateToken, requireAdmin, async (req, 
   const { id } = req.params;
   const { parent_property_id, land_id, category, amount, description, is_approved } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `UPDATE property_costs
        SET parent_property_id = ?, land_id = ?, category = ?, amount = ?, description = ?, is_approved = ?
        WHERE id = ?`,
       [parent_property_id || null, land_id || null, category, amount || 0, description || null, !!is_approved, id]
     );
-    if ((result as any).affectedRows === 0) return res.status(404).json({ error: "Property cost not found" });
+    if (metadata.affectedRows === 0) return res.status(404).json({ error: "Property cost not found" });
     const [rows] = await pool.query("SELECT * FROM property_costs WHERE id = ?", [id]);
     res.json((rows as any[])[0]);
   } catch (err: any) {
@@ -1323,12 +1323,12 @@ app.get("/api/debts-payables", authenticateToken, async (req: any, res: any) => 
 app.post("/api/debts-payables", authenticateToken, async (req: any, res: any) => {
   const { creditor_name, description, total_amount, paid_amount, balance, date, payment_method, status } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `INSERT INTO debts_payables (creditor_name, description, total_amount, paid_amount, balance, date, payment_method, status) 
        VALUES (?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?)`,
       [creditor_name, description, parseFloat(total_amount || 0), parseFloat(paid_amount || 0), parseFloat(balance || 0), date, payment_method || 'CASH', status || 'pending']
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM debts_payables WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -1341,14 +1341,14 @@ app.put("/api/debts-payables/:id", authenticateToken, requireAdmin, async (req: 
   const { creditor_name, description, total_amount, paid_amount, date, payment_method, status } = req.body;
   const balance = parseFloat(total_amount || 0) - parseFloat(paid_amount || 0);
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `UPDATE debts_payables
        SET creditor_name = ?, description = ?, total_amount = ?, paid_amount = ?, balance = ?, date = COALESCE(?, date),
            payment_method = ?, status = ?
        WHERE id = ?`,
       [creditor_name, description, parseFloat(total_amount || 0), parseFloat(paid_amount || 0), balance, date, payment_method || 'CASH', status || (balance <= 0 ? 'cleared' : 'pending'), id]
     );
-    if ((result as any).affectedRows === 0) return res.status(404).json({ error: "Debt record not found" });
+    if (metadata.affectedRows === 0) return res.status(404).json({ error: "Debt record not found" });
     const [rows] = await pool.query("SELECT * FROM debts_payables WHERE id = ?", [id]);
     res.json((rows as any[])[0]);
   } catch (err: any) {
@@ -1380,12 +1380,12 @@ app.get("/api/payroll", authenticateToken, async (req: any, res: any) => {
 app.post("/api/payroll", authenticateToken, async (req: any, res: any) => {
   const { staff_name, month_year, basic, commission, transport, deductions, gross_amount, net_amount, reporting_date } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `INSERT INTO payroll (staff_name, month_year, basic, commission, transport, deductions, gross_amount, net_amount, reporting_date) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
       [staff_name, month_year, parseFloat(basic || 0), parseFloat(commission || 0), parseFloat(transport || 0), parseFloat(deductions || 0), parseFloat(gross_amount || 0), parseFloat(net_amount || 0), reporting_date]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
     const [rows] = await pool.query("SELECT * FROM payroll WHERE id = ?", [insertId]);
     res.status(201).json((rows as any[])[0]);
   } catch (err: any) {
@@ -1399,14 +1399,14 @@ app.put("/api/payroll/:id", authenticateToken, requireAdmin, async (req: any, re
   const gross = parseFloat(basic || 0) + parseFloat(commission || 0) + parseFloat(transport || 0);
   const net = gross - parseFloat(deductions || 0);
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `UPDATE payroll
        SET staff_name = ?, month_year = ?, basic = ?, commission = ?, transport = ?, deductions = ?,
            gross_amount = ?, net_amount = ?, reporting_date = COALESCE(?, reporting_date)
        WHERE id = ?`,
       [staff_name, month_year, parseFloat(basic || 0), parseFloat(commission || 0), parseFloat(transport || 0), parseFloat(deductions || 0), gross, net, reporting_date, id]
     );
-    if ((result as any).affectedRows === 0) return res.status(404).json({ error: "Payroll record not found" });
+    if (metadata.affectedRows === 0) return res.status(404).json({ error: "Payroll record not found" });
     const [rows] = await pool.query("SELECT * FROM payroll WHERE id = ?", [id]);
     res.json((rows as any[])[0]);
   } catch (err: any) {
@@ -1449,12 +1449,12 @@ app.get("/api/salary-payments", authenticateToken, async (req: any, res: any) =>
 app.post("/api/salary-payments", authenticateToken, async (req: any, res: any) => {
   const { payroll_id, staff_name, amount, payment_method, transaction_ref } = req.body;
   try {
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       `INSERT INTO salary_payments (payroll_id, staff_name, amount, payment_method, transaction_ref, created_by)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [payroll_id, staff_name, parseFloat(amount || 0), payment_method, transaction_ref, req.user.id]
     );
-    const insertId = (result as any).insertId;
+    const insertId = metadata.insertId;
 
     if (payroll_id) {
       await pool.query(

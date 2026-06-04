@@ -13,16 +13,29 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     headers,
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'An unknown error occurred' }));
-    throw new Error(error.error || 'Request failed');
-  }
-
   if (response.status === 204) {
     return null;
   }
 
-  return response.json();
+  // Try to parse JSON response
+  let data: any;
+  try {
+    const text = await response.text();
+    data = text ? JSON.parse(text) : null;
+  } catch (e) {
+    // If JSON parsing fails, create an error message
+    if (!response.ok) {
+      throw new Error(`Server error (${response.status}): Unable to parse response`);
+    }
+    // If response was OK but couldn't parse, return null
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Request failed with status ${response.status}`);
+  }
+
+  return data;
 }
 
 export const api = {

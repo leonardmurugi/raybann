@@ -75,7 +75,13 @@ const pool = {
       };
 
       return [rows, metadata];
-    } catch (err) {
+    } catch (err: any) {
+      console.error('❌ Database Query Error:', {
+        sql: sql,
+        params: params,
+        error: err.message,
+        stack: err.stack
+      });
       throw err;
     }
   },
