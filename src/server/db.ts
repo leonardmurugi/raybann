@@ -35,7 +35,21 @@ const pool = {
         let paramIndex = 0;
         processedSql = sql.replace(/\?/g, () => {
           const param = params[paramIndex++];
-          processedParams.push(param);
+          // LibSQL only accepts string | number | boolean | null
+          // Sanitize unsupported types to prevent "Unsupported type of value" errors
+          let sanitized: any = param;
+          
+          if (param === undefined) {
+            sanitized = null;
+          } else if (typeof param === 'number' && !Number.isFinite(param)) {
+            // Convert NaN, Infinity, -Infinity to null
+            sanitized = null;
+          } else if (typeof param === 'object' && param !== null) {
+            // Objects/Arrays should be serialized to JSON string
+            sanitized = JSON.stringify(param);
+          }
+          
+          processedParams.push(sanitized);
           return '?';
         });
       }
