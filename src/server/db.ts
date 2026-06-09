@@ -259,7 +259,7 @@ export const dbInit = async () => {
       CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         customer_id INTEGER,
-        type TEXT NOT NULL CHECK(type IN ('saleAgreement', 'idDocument', 'kraCert', 'passportPhoto', 'titleDeed')),
+        type TEXT NOT NULL CHECK(type IN ('idDocument', 'officialDocs', 'receipt', 'agreement', 'proofOfAddress', 'saleAgreement', 'kraCert', 'passportPhoto', 'titleDeed')),
         file_blob BLOB NOT NULL,
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (customer_id) REFERENCES customers(id)

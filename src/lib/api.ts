@@ -66,6 +66,34 @@ export const api = {
     create: (data: any) => apiRequest('/customers', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiRequest(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => apiRequest(`/customers/${id}`, { method: 'DELETE' }),
+    getDocuments: (customerId: number) => apiRequest(`/customers/${customerId}/documents`),
+    uploadDocument: (customerId: number, formData: FormData) => {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      return fetch(`${import.meta.env.VITE_API_URL || '/api'}/customers/${customerId}/documents`, {
+        method: 'POST',
+        body: formData,
+        headers,
+      }).then(res => {
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        return res.json();
+      });
+    },
+    downloadDocument: (customerId: number, docId: number) => {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const url = `${import.meta.env.VITE_API_URL || '/api'}/customers/${customerId}/documents/${docId}/download`;
+      return fetch(url, { headers }).then(res => {
+        if (!res.ok) throw new Error('Download failed');
+        return res.blob().then(blob => {
+          const link = document.createElement('a');
+          link.href = window.URL.createObjectURL(blob);
+          link.download = `document-${docId}`;
+          link.click();
+        });
+      });
+    },
+    deleteDocument: (customerId: number, docId: number) => apiRequest(`/customers/${customerId}/documents/${docId}`, { method: 'DELETE' }),
   },
   sales: {
     list: () => apiRequest('/sales'),

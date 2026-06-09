@@ -356,6 +356,111 @@ app.delete("/api/customers/:id", authenticateToken, requireAdmin, async (req, re
   }
 });
 
+// --- CUSTOMER DOCUMENTS ROUTES ---
+// Configure multer for document uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB
+});
+
+// Get all documents for a customer
+app.get("/api/customers/:customerId/documents", authenticateToken, async (req, res) => {
+  const { customerId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, type, uploaded_at FROM documents WHERE customer_id = ? ORDER BY uploaded_at DESC",
+      [customerId]
+    );
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Upload document for a customer
+app.post("/api/customers/:customerId/documents", authenticateToken, upload.single('file'), async (req, res) => {
+  const { customerId } = req.params;
+  const { type } = req.body;
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file provided" });
+    }
+
+    const validTypes = ['idDocument', 'officialDocs', 'receipt', 'agreement', 'proofOfAddress'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: "Invalid document type" });
+    }
+
+    // Verify customer exists
+    const [customerCheck] = await pool.query("SELECT id FROM customers WHERE id = ?", [customerId]);
+    if ((customerCheck as any[]).length === 0) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    // Insert document with file blob
+    const [, metadata] = await pool.query(
+      "INSERT INTO documents (customer_id, type, file_blob) VALUES (?, ?, ?)",
+      [customerId, type, Buffer.from(req.file.buffer)]
+    );
+
+    const insertId = metadata.insertId;
+    const [rows] = await pool.query(
+      "SELECT id, type, uploaded_at FROM documents WHERE id = ?",
+      [insertId]
+    );
+
+    res.status(201).json((rows as any[])[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Download document
+app.get("/api/customers/:customerId/documents/:docId/download", authenticateToken, async (req, res) => {
+  const { customerId, docId } = req.params;
+  
+  try {
+    const [rows] = await pool.query(
+      "SELECT file_blob, type FROM documents WHERE id = ? AND customer_id = ?",
+      [docId, customerId]
+    );
+
+    if ((rows as any[]).length === 0) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    const doc = (rows as any[])[0];
+    const fileBuffer = Buffer.isBuffer(doc.file_blob) ? doc.file_blob : Buffer.from(doc.file_blob);
+    
+    res.setHeader('Content-Disposition', `attachment; filename="document-${docId}.bin"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.send(fileBuffer);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete document
+app.delete("/api/customers/:customerId/documents/:docId", authenticateToken, async (req, res) => {
+  const { customerId, docId } = req.params;
+  
+  try {
+    const [result] = await pool.query(
+      "DELETE FROM documents WHERE id = ? AND customer_id = ?",
+      [docId, customerId]
+    );
+
+    if ((result as any).affectedRows === 0) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- SALES & PAYMENTS ---
 app.get("/api/sales", authenticateToken, async (req, res) => {
   try {

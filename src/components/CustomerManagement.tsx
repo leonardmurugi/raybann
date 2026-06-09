@@ -11,9 +11,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Edit3,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ClientDocumentsUpload } from './ClientDocumentsUpload';
 
 export default function CustomerManagement() {
   const { user } = useAuth();
@@ -23,6 +25,7 @@ export default function CustomerManagement() {
   const [isSaleOpen, setSaleOpen] = useState(false);
   const [isAddClientOpen, setAddClientOpen] = useState(false);
   const [isEditClientOpen, setEditClientOpen] = useState(false);
+  const [isDocumentsOpen, setDocumentsOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -226,6 +229,14 @@ export default function CustomerManagement() {
                            className="px-4 py-2 border border-brand-blue/10 text-brand-blue rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-blue hover:text-white transition-all shadow-sm"
                          >
                            Record Sale
+                         </button>
+                         <button 
+                           onClick={() => { setSelectedCustomer(customer); setDocumentsOpen(true); }}
+                           className="p-2 bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100 hover:text-brand-blue transition-all" 
+                           aria-label="Manage documents"
+                           title="Manage Documents"
+                         >
+                           <FileText className="w-4 h-4" />
                          </button>
                          {user?.role === 'admin' && (
                            <>
@@ -445,6 +456,15 @@ export default function CustomerManagement() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Client Documents Modal */}
+      {isDocumentsOpen && selectedCustomer && (
+        <ClientDocumentsUpload
+          customerId={selectedCustomer.id}
+          customerName={selectedCustomer.name}
+          onClose={() => setDocumentsOpen(false)}
+        />
+      )}
     </div>
   );
 }
