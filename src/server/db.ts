@@ -131,7 +131,7 @@ export const dbInit = async () => {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('admin', 'reception', 'field')),
+        role TEXT NOT NULL CHECK(role IN ('admin', 'reception', 'field', 'front_desk')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);

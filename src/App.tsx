@@ -17,6 +17,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
+function RoleRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
+  const { user } = useAuth();
+  if (!roles) return <>{children}</>;
+  if (user && roles.includes(user.role)) return <>{children}</>;
+  return <Navigate to="/reports" />;
+}
+
 function AppContent() {
   return (
     <Routes>
@@ -26,13 +33,13 @@ function AppContent() {
           <Layout />
         </PrivateRoute>
       }>
-        <Route index element={<Dashboard />} />
-        <Route path="lands" element={<LandManagement />} />
-        <Route path="inventory-admin" element={<AdminInventory />} />
-        <Route path="customers" element={<CustomerManagement />} />
-        <Route path="financials" element={<Financials />} />
-        <Route path="approvals" element={<Approvals />} />
-        <Route path="import" element={<DataMigration />} />
+        <Route index element={<RoleRoute roles={['admin', 'reception', 'field']}><Dashboard /></RoleRoute>} />
+        <Route path="lands" element={<RoleRoute roles={['admin', 'reception', 'field']}><LandManagement /></RoleRoute>} />
+        <Route path="inventory-admin" element={<RoleRoute roles={['admin']}><AdminInventory /></RoleRoute>} />
+        <Route path="customers" element={<RoleRoute roles={['admin', 'reception', 'field']}><CustomerManagement /></RoleRoute>} />
+        <Route path="financials" element={<RoleRoute roles={['admin', 'reception', 'field']}><Financials /></RoleRoute>} />
+        <Route path="approvals" element={<RoleRoute roles={['admin']}><Approvals /></RoleRoute>} />
+        <Route path="import" element={<RoleRoute roles={['admin', 'reception', 'field']}><DataMigration /></RoleRoute>} />
         <Route path="reports" element={<Reports />} />
       </Route>
     </Routes>

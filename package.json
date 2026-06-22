@@ -8,7 +8,8 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.mjs",
     "start": "node dist/server.mjs",
     "lint": "tsc --noEmit",
-    "seed": "tsx src/server/seedAdmin.ts"
+    "seed": "tsx src/server/seedAdmin.ts",
+    "seed:frontdesk": "tsx src/server/seedFrontDesk.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

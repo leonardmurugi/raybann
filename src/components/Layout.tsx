@@ -32,14 +32,16 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Inventory', path: '/lands', icon: Map },
-    { name: 'Customers', path: '/customers', icon: Users },
-    { name: 'Financials', path: '/financials', icon: Wallet },
-    { name: 'Reports', path: '/reports', icon: PieChart },
-    { name: 'Migration', path: '/import', icon: FileSpreadsheet },
-  ];
+  const navItems = user?.role === 'front_desk'
+    ? [{ name: 'Reports', path: '/reports', icon: PieChart }]
+    : [
+        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { name: 'Inventory', path: '/lands', icon: Map },
+        { name: 'Customers', path: '/customers', icon: Users },
+        { name: 'Financials', path: '/financials', icon: Wallet },
+        { name: 'Reports', path: '/reports', icon: PieChart },
+        { name: 'Migration', path: '/import', icon: FileSpreadsheet },
+      ];
 
   if (user?.role === 'admin') {
     navItems.push({ name: 'Admin Stock', path: '/inventory-admin', icon: Package });

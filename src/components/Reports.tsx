@@ -28,10 +28,14 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { groupByWeek, groupByMonth } from '../lib/reportUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAuth } from '../context/AuthContext';
 
 type ReportType = 'financial-cashflow' | 'collections-payments' | 'office-expenses' | 'inventory-subdivisions' | 'client-sales-statements' | 'pending-approvals-trail' | 'payroll-hr' | 'vendor-debts' | 'petty-cash-ledger';
 
 export default function Reports() {
+  const { user } = useAuth();
+  const isFrontDesk = user?.role === 'front_desk';
+
   // Navigation Tabs
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'builder'>('dashboard');
 
@@ -781,22 +785,24 @@ export default function Reports() {
                   Reset Range
                 </button>
               )}
-              <button 
-                onClick={exportCSV}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-wider text-brand-blue hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" /> Export Overview CSV
-              </button>
+              {!isFrontDesk && (
+                <button 
+                  onClick={exportCSV}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-wider text-brand-blue hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export Overview CSV
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${isFrontDesk ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-4`}>
             {[
               { label: 'Plots Subdivided', value: stats?.landCount || 0, icon: LandPlot, trend: 'All-time total', color: 'text-brand-blue' },
-              { label: 'Total Collections', value: `KES ${((stats?.received || 0)).toLocaleString()}`, icon: TrendingUp, trend: 'Approved payments', color: 'text-emerald-600' },
-              { label: 'Outstanding Debts', value: `KES ${((stats?.landDebt || 0)).toLocaleString()}`, icon: DollarSign, trend: 'Plot balances', color: 'text-brand-orange' },
+              ...(!isFrontDesk ? [{ label: 'Total Collections', value: `KES ${((stats?.received || 0)).toLocaleString()}`, icon: TrendingUp, trend: 'Approved payments', color: 'text-emerald-600' }] : []),
+              ...(!isFrontDesk ? [{ label: 'Outstanding Debts', value: `KES ${((stats?.landDebt || 0)).toLocaleString()}`, icon: DollarSign, trend: 'Plot balances', color: 'text-brand-orange' }] : []),
               { label: 'Registered Clients', value: analytics?.customerCount || 0, icon: Users, trend: 'Active portfolio', color: 'text-brand-blue' },
-            ].map((item, i) => (
+            ].map((item: any, i: number) => (
               <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className={`p-2 rounded-lg bg-slate-50 ${item.color}`}>
@@ -810,50 +816,52 @@ export default function Reports() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-display font-semibold text-brand-blue uppercase tracking-wider">Business Activity Breakdown</h3>
-                <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                   <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-brand-blue" /> Collections</span>
-                   <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-brand-orange" /> Expenses</span>
+          {!isFrontDesk && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-display font-semibold text-brand-blue uppercase tracking-wider">Business Activity Breakdown</h3>
+                  <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                     <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-brand-blue" /> Collections</span>
+                     <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-brand-orange" /> Expenses</span>
+                  </div>
+                </div>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics?.chartData || []}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis dataKey="name" fontSize={10} fontWeight={600} stroke="#94A3B8" />
+                      <YAxis fontSize={10} fontWeight={600} stroke="#94A3B8" />
+                      <Tooltip cursor={{fill: '#F8FAFC'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                      <Bar dataKey="collections" fill="#1B315F" radius={[4, 4, 0, 0]} name="Collections" />
+                      <Bar dataKey="expenses" fill="#F4811F" radius={[4, 4, 0, 0]} name="Expenses" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics?.chartData || []}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis dataKey="name" fontSize={10} fontWeight={600} stroke="#94A3B8" />
-                    <YAxis fontSize={10} fontWeight={600} stroke="#94A3B8" />
-                    <Tooltip cursor={{fill: '#F8FAFC'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                    <Bar dataKey="collections" fill="#1B315F" radius={[4, 4, 0, 0]} name="Collections" />
-                    <Bar dataKey="expenses" fill="#F4811F" radius={[4, 4, 0, 0]} name="Expenses" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
 
-            <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
-              <div className="space-y-6">
-                <h3 className="text-sm font-display font-semibold text-brand-blue uppercase tracking-wider">Performance Indicators</h3>
-                <div className="space-y-4">
-                  {[
-                    { label: 'Collection Rate', value: `${collectionRate}%`, sub: 'Ratio of payments to total sales' },
-                    { label: 'Subdivided Inventory', value: `${stats?.landCount || 0} Units`, sub: 'Total plots on file' },
-                    { label: 'Total Company Costs', value: `KES ${(stats?.expenses || 0).toLocaleString()}`, sub: 'Approved operating + property costs' },
-                  ].map((metric, i) => (
-                    <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                       <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{metric.label}</span>
-                          <span className="text-sm font-bold text-brand-blue">{metric.value}</span>
-                       </div>
-                       <p className="text-[10px] text-slate-400 leading-normal">{metric.sub}</p>
-                    </div>
-                  ))}
+              <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+                <div className="space-y-6">
+                  <h3 className="text-sm font-display font-semibold text-brand-blue uppercase tracking-wider">Performance Indicators</h3>
+                  <div className="space-y-4">
+                    {[
+                      { label: 'Collection Rate', value: `${collectionRate}%`, sub: 'Ratio of payments to total sales' },
+                      { label: 'Subdivided Inventory', value: `${stats?.landCount || 0} Units`, sub: 'Total plots on file' },
+                      { label: 'Total Company Costs', value: `KES ${(stats?.expenses || 0).toLocaleString()}`, sub: 'Approved operating + property costs' },
+                    ].map((metric, i) => (
+                      <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                         <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{metric.label}</span>
+                            <span className="text-sm font-bold text-brand-blue">{metric.value}</span>
+                         </div>
+                         <p className="text-[10px] text-slate-400 leading-normal">{metric.sub}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
         // CUSTOM REPORT BUILDER & PRINT-TO-PDF SUITE
@@ -881,15 +889,15 @@ export default function Reports() {
                   onChange={e => setSelectedReport(e.target.value as ReportType)}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs font-bold outline-none text-brand-blue focus:ring-2 ring-brand-blue/10"
                 >
-                  <option value="financial-cashflow">Full Cashflow & Income Statement</option>
-                  <option value="collections-payments">Collections & Installment Receipt Logs</option>
-                  <option value="office-expenses">Operational Expenses & Overheads</option>
+                  {!isFrontDesk && <option value="financial-cashflow">Full Cashflow & Income Statement</option>}
+                  {!isFrontDesk && <option value="collections-payments">Collections & Installment Receipt Logs</option>}
+                  {!isFrontDesk && <option value="office-expenses">Operational Expenses & Overheads</option>}
                   <option value="inventory-subdivisions">Subdivided Plot Inventory & Valuation</option>
                   <option value="client-sales-statements">Client Contract Statements & Debts</option>
-                  <option value="pending-approvals-trail">Pending Approvals Audit Ledger</option>
-                  <option value="payroll-hr">Human Resources & Staff Payroll Registry</option>
-                  <option value="vendor-debts">Vendor Debts & Outstanding Liabilities</option>
-                  <option value="petty-cash-ledger">Petty Cash Ledger Book Accounts</option>
+                  {!isFrontDesk && <option value="pending-approvals-trail">Pending Approvals Audit Ledger</option>}
+                  {!isFrontDesk && <option value="payroll-hr">Human Resources & Staff Payroll Registry</option>}
+                  {!isFrontDesk && <option value="vendor-debts">Vendor Debts & Outstanding Liabilities</option>}
+                  {!isFrontDesk && <option value="petty-cash-ledger">Petty Cash Ledger Book Accounts</option>}
                 </select>
               </div>
               

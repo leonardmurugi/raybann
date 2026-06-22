@@ -1,9 +1,10 @@
 // src/server/seedAdmin.ts
-import pool from './db';
+import pool, { dbInit } from './db';
 import bcrypt from 'bcryptjs';
 
 (async () => {
   try {
+    await dbInit();
     const email = 'admin@rayban.com';
     const password = 'Admin@2026!';
     // Check if admin already exists
@@ -13,11 +14,11 @@ import bcrypt from 'bcryptjs';
       process.exit(0);
     }
     const hashed = await bcrypt.hash(password, 10);
-    const [result] = await pool.query(
+    const [, metadata] = await pool.query(
       'INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)',
       [email, hashed, 'Admin', 'admin']
     );
-    console.log('Created admin user with id', (result as any).insertId);
+    console.log('Created admin user with id', metadata.insertId);
     process.exit(0);
   } catch (err) {
     console.error('Error seeding admin user:', err);
