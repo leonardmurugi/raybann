@@ -1190,7 +1190,7 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
         await conn.query(
           `INSERT INTO customers (name, email, phone, id_number) 
            VALUES (?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), phone = VALUES(phone)`,
+           ON CONFLICT(id_number) DO UPDATE SET name = excluded.name, email = excluded.email, phone = excluded.phone`,
           [name, email, phone, id_number]
         );
       }
@@ -1227,9 +1227,9 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
         await conn.query(
           `INSERT INTO lands (parent_property_id, plot_number, location, size, acquisition_type, status, total_cost, paid_amount, title_deed_status) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             location = VALUES(location), size = VALUES(size), total_cost = VALUES(total_cost),
-             paid_amount = VALUES(paid_amount), status = VALUES(status), title_deed_status = VALUES(title_deed_status)`,
+           ON CONFLICT(plot_number) DO UPDATE SET
+             location = excluded.location, size = excluded.size, total_cost = excluded.total_cost,
+             paid_amount = excluded.paid_amount, status = excluded.status, title_deed_status = excluded.title_deed_status`,
           [parent_property_id, plot_number, location, size, 'purchase', status, total_cost, paid_amount, title_deed_status]
         );
       }
@@ -1321,10 +1321,10 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
       let currentAmount = 0;
 
       for (const row of data) {
-        const name = String(pickImportValue(row, ['customer_name', 'name'], '')).trim();
-        const plot = String(pickImportValue(row, ['plot_description', 'plot', 'plot_number'], '')).trim();
-        const amount = parseImportMoney(pickImportValue(row, ['amount', 'total_price', 'price'], 0));
-        const payment = parseImportMoney(pickImportValue(row, ['actual_payment', 'paid', 'paid_amount', 'payment'], 0));
+        const name = String(pickImportValue(row, ['customer_name', 'client_name', 'name'], '')).trim();
+        const plot = String(pickImportValue(row, ['plot_description', 'property', 'plot', 'plot_number'], '')).trim();
+        const amount = parseImportMoney(pickImportValue(row, ['amount', 'amt._invested', 'total_price', 'price'], 0));
+        const payment = parseImportMoney(pickImportValue(row, ['actual_payment', 'deposit', 'paid', 'paid_amount', 'payment'], 0));
         const date = parseImportDate(pickImportValue(row, ['date'], new Date()));
         const status = String(pickImportValue(row, ['status_total_paid', 'status', 'total_paid'], '')).trim();
         const balance = parseImportMoney(pickImportValue(row, ['balance_c_f', 'balance'], 0));
@@ -1370,10 +1370,10 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
             land_id = (landRes as any[])[0].id;
             await conn.query(
               `UPDATE lands
-               SET total_cost = IF(? > 0, ?, total_cost),
+               SET total_cost = CASE WHEN ? > 0 THEN ? ELSE total_cost END,
                    paid_amount = paid_amount + ?,
                    customer_id = ?,
-                   status = IF(paid_amount + ? >= IF(? > 0, ?, total_cost), 'sold', 'reserved')
+                   status = CASE WHEN paid_amount + ? >= CASE WHEN ? > 0 THEN ? ELSE total_cost END THEN 'sold' ELSE 'reserved' END
                WHERE id = ?`,
               [currentAmount, currentAmount, payment, customer_id, payment, currentAmount, currentAmount, land_id]
             );
@@ -1393,7 +1393,7 @@ app.post("/api/migrations/import", authenticateToken, async (req, res) => {
             sale_id = (saleRes as any[])[0].id;
             await conn.query(
               `UPDATE sales
-               SET total_price = IF(? > 0, ?, total_price),
+               SET total_price = CASE WHEN ? > 0 THEN ? ELSE total_price END,
                    paid_amount = paid_amount + ?
                WHERE id = ?`,
               [currentAmount, currentAmount, payment, sale_id]
@@ -1725,13 +1725,18 @@ app.get("/api/reports/analytics", authenticateToken, async (req, res) => {
       params.push(endDate);
     }
 
-    // Group by month using MySQL's DATE_FORMAT (replaces PostgreSQL's TO_CHAR / DATE_TRUNC)
+    // Group by month using SQLite strftime
     const [paymentRows] = await pool.query(`
-      SELECT DATE_FORMAT(p.date, '%b') as name, SUM(p.amount) as collections
+      SELECT CASE CAST(strftime('%m', p.date) AS INTEGER)
+        WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar'
+        WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun'
+        WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep'
+        WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec'
+      END as name, SUM(p.amount) as collections
       FROM payments p
       WHERE p.is_approved = TRUE AND p.type = 'received' ${dateFilter}
-      GROUP BY DATE_FORMAT(p.date, '%b'), DATE_FORMAT(p.date, '%Y-%m')
-      ORDER BY DATE_FORMAT(p.date, '%Y-%m')
+      GROUP BY strftime('%Y-%m', p.date)
+      ORDER BY strftime('%Y-%m', p.date)
     `, params);
 
     const expensesParams: any[] = [];
@@ -1746,19 +1751,29 @@ app.get("/api/reports/analytics", authenticateToken, async (req, res) => {
     }
 
     const [expensesRows] = await pool.query(`
-      SELECT DATE_FORMAT(date, '%b') as name, SUM(amount) as costs
+      SELECT CASE CAST(strftime('%m', date) AS INTEGER)
+        WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar'
+        WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun'
+        WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep'
+        WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec'
+      END as name, SUM(amount) as costs
       FROM expenses
       WHERE is_approved = TRUE ${expFilter}
-      GROUP BY DATE_FORMAT(date, '%b'), DATE_FORMAT(date, '%Y-%m')
-      ORDER BY DATE_FORMAT(date, '%Y-%m')
+      GROUP BY strftime('%Y-%m', date)
+      ORDER BY strftime('%Y-%m', date)
     `, expensesParams);
 
     const [propertyCostRows] = await pool.query(`
-      SELECT DATE_FORMAT(date, '%b') as name, SUM(amount) as costs
+      SELECT CASE CAST(strftime('%m', date) AS INTEGER)
+        WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar'
+        WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun'
+        WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep'
+        WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec'
+      END as name, SUM(amount) as costs
       FROM property_costs
       WHERE is_approved = TRUE ${expFilter}
-      GROUP BY DATE_FORMAT(date, '%b'), DATE_FORMAT(date, '%Y-%m')
-      ORDER BY DATE_FORMAT(date, '%Y-%m')
+      GROUP BY strftime('%Y-%m', date)
+      ORDER BY strftime('%Y-%m', date)
     `, expensesParams);
 
     // Merge by month

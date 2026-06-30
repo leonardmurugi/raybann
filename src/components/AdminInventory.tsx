@@ -124,46 +124,57 @@ export default function AdminInventory() {
       </div>
 
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_96px] gap-4 px-6 py-4 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          <span>Item</span>
-          <span>Category</span>
-          <span>Quantity</span>
-          <span>Unit Price</span>
-          <span className="text-right">Actions</span>
-        </div>
-
-        {loading ? (
-          <div className="h-48 flex items-center justify-center text-sm font-bold tracking-widest uppercase text-slate-300">Loading...</div>
-        ) : filteredItems.length === 0 ? (
-          <div className="h-48 flex items-center justify-center text-sm font-bold text-slate-300">No inventory items found</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredItems.map((item) => (
-              <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_96px] gap-4 px-6 py-5 items-center hover:bg-slate-50/60">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-brand-blue/5 text-brand-blue flex items-center justify-center">
-                    <Package className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm text-slate-900">{item.item_name}</p>
-                    <p className="text-[10px] font-semibold text-slate-400">Updated {new Date(item.updated_at).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <p className="text-xs font-bold text-slate-500">{item.category || 'Uncategorized'}</p>
-                <p className="text-xs font-bold text-brand-blue">{Number(item.quantity || 0).toLocaleString()}</p>
-                <p className="text-xs font-bold text-brand-orange">KES {Number(item.unit_price || 0).toLocaleString()}</p>
-                <div className="flex md:justify-end gap-2">
-                  <button onClick={() => openEditForm(item)} className="p-2.5 bg-slate-100 rounded-xl text-brand-blue hover:bg-slate-200" aria-label="Edit item">
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDelete(item)} className="p-2.5 bg-rose-50 rounded-xl text-rose-600 hover:bg-rose-100" aria-label="Delete item">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <table className="w-full">
+          <thead>
+            <tr className="bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <th className="text-left px-6 py-4">Item</th>
+              <th className="text-left px-6 py-4">Category</th>
+              <th className="text-right px-6 py-4">Quantity</th>
+              <th className="text-right px-6 py-4">Unit Price</th>
+              <th className="text-right px-6 py-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="h-48 text-center text-sm font-bold tracking-widest uppercase text-slate-300">Loading...</td>
+              </tr>
+            ) : filteredItems.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="h-48 text-center text-sm font-bold text-slate-300">No inventory items found</td>
+              </tr>
+            ) : (
+              filteredItems.map((item) => (
+                <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-brand-blue/5 text-brand-blue flex items-center justify-center shrink-0">
+                        <Package className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-slate-900">{item.item_name}</p>
+                        <p className="text-[10px] font-semibold text-slate-400">Updated {new Date(item.updated_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-xs font-bold text-slate-500">{item.category || 'Uncategorized'}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-brand-blue text-right">{Number(item.quantity || 0).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-brand-orange text-right">KES {Number(item.unit_price || 0).toLocaleString()}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end gap-1.5">
+                      <button onClick={() => openEditForm(item)} className="p-2 bg-slate-100 rounded-lg text-brand-blue hover:bg-slate-200" aria-label="Edit item">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(item)} className="p-2 bg-rose-50 rounded-lg text-rose-600 hover:bg-rose-100" aria-label="Delete item">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <AnimatePresence>

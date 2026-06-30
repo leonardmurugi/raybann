@@ -26,6 +26,121 @@ const TARGET_PRESETS = [
   { value: 'properties', name: 'Parent Land Properties' }
 ];
 
+function isTitleRow(row: any[]): boolean {
+  if (!row || row.length === 0) return true;
+  const filled = row.filter(c => c !== null && c !== undefined && String(c).trim() !== '').length;
+  if (filled <= 1) return true;
+  const joined = row.filter(Boolean).join(' ').toLowerCase();
+  if (joined.includes('properties ltd') || joined.includes('book template') || joined.includes('for the month')) return true;
+  return false;
+}
+
+function findHeaderRow(rows: any[][]): { headerRowIndex: number; headerStrings: string[]; dataRows: any[][] } {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    const filled = row.filter(c => c !== null && c !== undefined && String(c).trim() !== '');
+    if (filled.length >= 3 && !isTitleRow(row)) {
+      const headers = row.map((h, idx) => h ? String(h).trim() : `Column_${idx}`);
+      const dataRows = rows.slice(i + 1).filter(r => {
+        if (!r || r.length === 0) return false;
+        return r.some(c => c !== null && c !== undefined && String(c).trim() !== '');
+      });
+      return { headerRowIndex: i, headerStrings: headers, dataRows };
+    }
+  }
+  return { headerRowIndex: -1, headerStrings: [], dataRows: [] };
+}
+
+function extractSheetTables(name: string, rows: any[][]): { entries: { subName: string; headers: string[]; data: any[][] }[] } {
+  const entries: { subName: string; headers: string[]; data: any[][] }[] = [];
+
+  // For Sheet3, detect the multi-section structure
+  if (name === 'Sheet3') {
+    // Section 1: Client investment/commission table
+    let firstHeader = -1;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      const filled = row.filter(c => c !== null && c !== undefined && String(c).trim() !== '');
+      if (filled.length >= 4 && !isTitleRow(row) && String(row[0] || '').toLowerCase().includes('client')) {
+        firstHeader = i;
+        break;
+      }
+    }
+    if (firstHeader >= 0) {
+      const headers = rows[firstHeader].map((h, idx) => h ? String(h).trim() : `Column_${idx}`);
+      const data = [];
+      for (let j = firstHeader + 1; j < rows.length; j++) {
+        const r = rows[j];
+        if (!r || r.length === 0) break;
+        const filled = r.filter(c => c !== null && c !== undefined && String(c).trim() !== '');
+        if (filled.length === 0) break;
+        if (String(r[0] || '').toLowerCase() === 'total') {
+          data.push(r);
+          break;
+        }
+        data.push(r);
+      }
+      entries.push({ subName: 'Commission', headers, data });
+    }
+
+    // Section 2: Payroll table (END OF AUGUST 2025 PAYMENT STRUCTURE)
+    let payrollHeader = -1;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      const filled = row.filter(c => c !== null && c !== undefined && String(c).trim() !== '');
+      if (filled.length >= 4 && String(row[0] || '').toLowerCase() === 'name' && String(row[1] || '').toLowerCase() === 'basic') {
+        payrollHeader = i;
+        break;
+      }
+    }
+    if (payrollHeader >= 0) {
+      const headers = rows[payrollHeader].map((h, idx) => h ? String(h).trim() : `Column_${idx}`);
+      const data = [];
+      for (let j = payrollHeader + 1; j < rows.length; j++) {
+        const r = rows[j];
+        if (!r || r.length === 0) break;
+        const filled = r.filter(c => c !== null && c !== undefined && String(c).trim() !== '');
+        if (filled.length === 0) break;
+        if (String(r[0] || '').toLowerCase() === 'total') continue;
+        data.push(r);
+      }
+      entries.push({ subName: 'Payroll', headers, data });
+    }
+    return { entries };
+  }
+
+  // For other sheets, find the first real header row
+  const result = findHeaderRow(rows);
+  if (result.headerRowIndex >= 0) {
+    entries.push({ subName: name, headers: result.headerStrings, data: result.dataRows });
+  }
+  return { entries };
+}
+
+function buildObjects(headers: string[], dataRows: any[][]): any[] {
+  const seen = new Map<string, number>();
+  const uniqueHeaders = headers.map((hdr) => {
+    if (!seen.has(hdr)) {
+      seen.set(hdr, 0);
+      return hdr;
+    }
+    const count = seen.get(hdr)! + 1;
+    seen.set(hdr, count);
+    return `${hdr}_${count}`;
+  });
+
+  return dataRows.map((r) => {
+    const obj: any = {};
+    uniqueHeaders.forEach((hdr, colIdx) => {
+      obj[hdr] = r[colIdx] !== undefined ? r[colIdx] : '';
+    });
+    return obj;
+  });
+}
+
 export default function DataMigration() {
   const [sheetsData, setSheetsData] = useState<{[sheetName: string]: any[]}>({});
   const [sheetNames, setSheetNames] = useState<string[]>([]);
@@ -69,30 +184,28 @@ export default function DataMigration() {
           const wb = XLSX.read(bstr, { type: 'binary' });
           const allSheets: {[name: string]: any[]} = {};
           const allMappings: {[name: string]: string} = {};
-          const names = wb.SheetNames;
+          const names: string[] = [];
 
-          names.forEach((name) => {
+          wb.SheetNames.forEach((name) => {
             const ws = wb.Sheets[name];
-            // Read as raw grid to make sure we parse properly
             const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-            if (rawRows.length > 0) {
-              const headers = rawRows[0] || [];
-              const headerStrings = headers.map((h, idx) => h ? String(h).trim() : `Column_${idx}`);
+            if (!rawRows || rawRows.length === 0) return;
 
-              const objectsList = rawRows.slice(1).map((r) => {
-                const obj: any = {};
-                headerStrings.forEach((hdr, colIdx) => {
-                  obj[hdr] = r[colIdx] !== undefined ? r[colIdx] : '';
-                });
-                return obj;
-              });
-              allSheets[name] = objectsList;
-              allMappings[name] = detectTarget(name, headerStrings);
-            } else {
-              allSheets[name] = [];
-              allMappings[name] = 'lands';
+            const { entries } = extractSheetTables(name, rawRows);
+            for (const entry of entries) {
+              const key = name === 'Sheet3' ? `${name} - ${entry.subName}` : name;
+              const objectsList = buildObjects(entry.headers, entry.data);
+              allSheets[key] = objectsList;
+              allMappings[key] = detectTarget(entry.subName, entry.headers);
+              if (!names.includes(key)) names.push(key);
             }
           });
+
+          if (names.length === 0) {
+            alert('No recognizable data tables found in the workbook.');
+            setLoading(false);
+            return;
+          }
 
           setSheetsData(allSheets);
           setSheetNames(names);
@@ -113,31 +226,44 @@ export default function DataMigration() {
     const name = sheetName.toLowerCase();
     const headersLower = headers.map(h => String(h).toLowerCase());
 
-    if (name.includes('payroll') || name.includes('deduction') || name.includes('structure') || headersLower.includes('basic') || headersLower.includes('commission')) {
+    // Payroll
+    if (name.includes('payroll') || name.includes('deduction') || headersLower.includes('basic') || headersLower.includes('commission') || headersLower.includes('net ')) {
       return 'payroll';
     }
-    if (name.includes('petty') || name.includes('cash') || name.includes('cbn') || name.includes('vn') || headersLower.includes('cbn') || headersLower.includes('vn')) {
+
+    // Petty cash (split debit/credit columns)
+    if (name.includes('petty') || name.includes('cash') || headersLower.includes('cbn') || headersLower.includes('vn') || headersLower.includes('debit')) {
       return 'petty_cash';
     }
-    if (name.includes('debt') || name.includes('payable') || name.includes('creditor') || headersLower.includes('debt') || headersLower.includes('creditor')) {
+
+    // Debts / payables
+    if (name.includes('debt') || name.includes('payable') || name.includes('creditor') || headersLower.includes('debt') || headersLower.includes('creditor') || headersLower.includes('decscriptn')) {
       return 'debts_payables';
     }
-    if (name.includes('customer') || name.includes('plot description') || name.includes('statement') || headersLower.includes('plot description') || headersLower.includes('actual payment')) {
+
+    // Sales ledger (customer name + plot description pattern)
+    if ((headersLower.includes('customer name') || headersLower.includes('client name')) && headersLower.includes('plot')) {
       return 'sales_ledger';
     }
-    if (headersLower.includes('customer name') && headersLower.includes('plot description')) {
+    if (headersLower.includes('actual payment') || headersLower.includes('balance(c-f)') || headersLower.includes('status/total paid')) {
       return 'sales_ledger';
     }
-    // Generic financial exports default to the sales ledger unless stronger sheet headers matched above.
-    if (name.includes('financials')) {
+
+    // Commission / investment sheet
+    if (name.includes('commission') || (headersLower.includes('client name') && headersLower.includes('amt. invested'))) {
       return 'sales_ledger';
     }
-    if (headersLower.includes('plot_number') || headersLower.includes('plot') || headersLower.includes('size')) {
+
+    // Lands / plots
+    if (headersLower.includes('plot_number') || headersLower.includes('plot description') || (headersLower.includes('plot') && headersLower.includes('size'))) {
       return 'lands';
     }
+
+    // Customers
     if (headersLower.includes('phone') || headersLower.includes('id_number') || headersLower.includes('passport')) {
       return 'customers';
     }
+
     return 'lands';
   };
 

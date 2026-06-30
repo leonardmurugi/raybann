@@ -1,0 +1,13 @@
+DELETE FROM payments;
+DELETE FROM sales;
+DELETE FROM property_costs;
+DELETE FROM receipts;
+DELETE FROM lands;
+DELETE FROM parent_properties;
+DELETE FROM payroll;
+DELETE FROM salary_payments;
+DELETE FROM debts_payables;
+DELETE FROM petty_cash;
+DELETE FROM customers;
+DELETE FROM inventory;
+DELETE FROM documents;

@@ -285,166 +285,169 @@ export default function LandManagement() {
         filteredProperties.length === 0 ? (
           <p className="text-center py-10 text-sm font-bold text-slate-300">No properties found</p>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredProperties.map((prop) => (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                key={prop.id} 
-                className="bg-white p-8 rounded-[3rem] border border-black/5 flex flex-col gap-8 group hover:shadow-2xl transition-all"
-              >
-                <div className="flex items-start justify-between">
-                   <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-3xl bg-brand-blue/5 flex items-center justify-center text-brand-blue">
-                         <Building2 className="w-8 h-8" />
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <th className="text-left px-6 py-4">Property</th>
+                  <th className="text-left px-6 py-4">Location</th>
+                  <th className="text-right px-6 py-4">Size</th>
+                  <th className="text-right px-6 py-4">Buy Price</th>
+                  <th className="text-right px-6 py-4">Paid</th>
+                  <th className="text-right px-6 py-4">Outstanding</th>
+                  <th className="text-center px-6 py-4">Status</th>
+                  <th className="text-right px-6 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProperties.map((prop) => (
+                  <tr key={prop.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-brand-blue/5 text-brand-blue flex items-center justify-center shrink-0">
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <p className="font-bold text-sm text-slate-900">{prop.name}</p>
                       </div>
-                      <div>
-                         <h3 className="text-2xl font-display font-bold tracking-tight text-brand-blue">{prop.name}</h3>
-                         <div className="flex items-center gap-2 text-slate-400">
-                           <MapPin className="w-3 h-3" />
-                           <span className="text-[10px] uppercase font-bold tracking-widest">{prop.location}</span>
-                         </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                        <MapPin className="w-3 h-3" />
+                        {prop.location}
                       </div>
-                   </div>
-                   <div className={cn(
-                     "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest",
-                     prop.ownership_status === 'fully_owned' ? "bg-emerald-50 text-emerald-600" : "bg-brand-orange/10 text-brand-orange"
-                   )}>
-                     {prop.ownership_status.replace('_', ' ')}
-                   </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                   <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
-                      <p className="text-[9px] uppercase font-bold text-slate-300 tracking-widest">Total Size</p>
-                      <p className="font-bold text-sm text-brand-blue">{prop.total_size}</p>
-                   </div>
-                   <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
-                      <p className="text-[9px] uppercase font-bold text-slate-300 tracking-widest">Buy Price</p>
-                      <p className="font-bold text-sm text-brand-blue">K{Math.round(prop.buying_price/1000)}k</p>
-                   </div>
-                   <div className="p-4 bg-slate-50 rounded-2xl space-y-1 border-b-2 border-brand-orange">
-                      <p className="text-[9px] uppercase font-bold text-slate-300 tracking-widest">Outstanding</p>
-                      <p className="font-bold text-sm text-brand-orange">K{Math.round((prop.buying_price - prop.amount_paid_to_seller)/1000)}k</p>
-                   </div>
-                </div>
-
-                <div className="flex items-center gap-4 pt-4 mt-auto">
-                   <button 
-                     onClick={() => { setSelectedProperty(prop); loadPropertyCosts(prop.id); setManageCostsOpen(true); }}
-                     className="flex-1 py-4 bg-brand-blue text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-brand-orange transition-all shadow-lg shadow-brand-blue/10"
-                   >
-                      Manage Costs
-                   </button>
-                   {user?.role === 'admin' && (
-                     <div className="flex gap-2">
-                       <button
-                         onClick={() => openEditProperty(prop)}
-                         className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors text-brand-blue"
-                         aria-label="Edit property"
-                       >
-                         <Edit3 className="w-4 h-4" />
-                       </button>
-                       <button
-                         onClick={() => handleDeleteProperty(prop)}
-                         className="p-4 bg-rose-50 rounded-2xl hover:bg-rose-100 transition-colors text-rose-600"
-                         aria-label="Delete property"
-                       >
-                         <Trash2 className="w-4 h-4" />
-                       </button>
-                     </div>
-                   )}
-                   <div className="text-[10px] font-semibold text-slate-400 italic">
-                      Created: {new Date(prop.created_at).toLocaleDateString()}
-                   </div>
-                </div>
-              </motion.div>
-            ))}
+                    </td>
+                    <td className="px-6 py-4 text-xs font-bold text-brand-blue text-right">{prop.total_size}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-slate-700 text-right">KES {Number(prop.buying_price || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-emerald-600 text-right">KES {Number(prop.amount_paid_to_seller || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-brand-orange text-right">KES {Math.max(0, Number(prop.buying_price || 0) - Number(prop.amount_paid_to_seller || 0)).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={cn(
+                        "px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest",
+                        prop.ownership_status === 'fully_owned' ? "bg-emerald-50 text-emerald-600" : "bg-brand-orange/10 text-brand-orange"
+                      )}>
+                        {prop.ownership_status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => { setSelectedProperty(prop); loadPropertyCosts(prop.id); setManageCostsOpen(true); }}
+                          className="p-2 bg-slate-100 rounded-lg text-xs font-bold text-brand-blue hover:bg-slate-200"
+                          aria-label="Manage costs"
+                        >
+                          Costs
+                        </button>
+                        {user?.role === 'admin' && (
+                          <>
+                            <button
+                              onClick={() => openEditProperty(prop)}
+                              className="p-2 bg-slate-100 rounded-lg text-brand-blue hover:bg-slate-200"
+                              aria-label="Edit property"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProperty(prop)}
+                              className="p-2 bg-rose-50 rounded-lg text-rose-600 hover:bg-rose-100"
+                              aria-label="Delete property"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )
       ) : (
         filteredPlots.length === 0 ? (
           <p className="text-center py-10 text-sm font-bold text-slate-300">No plots found</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPlots.map((land) => (
-              <motion.div
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                key={land.id}
-                className="bg-white rounded-[2.5rem] border border-slate-100 p-8 flex flex-col gap-6 shadow-sm hover:shadow-xl transition-all"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="w-12 h-12 rounded-2xl bg-brand-blue/5 flex items-center justify-center text-brand-blue">
-                    <LandPlot className="w-6 h-6" />
-                  </div>
-                  <div className={cn(
-                    "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                    land.status === 'sold' ? "bg-rose-50 text-rose-500" :
-                    land.status === 'reserved' ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-500"
-                  )}>
-                    {land.status}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-[10px] uppercase font-display font-bold text-slate-300 tracking-widest mb-1">{land.parent_name || 'Individual Plot'}</p>
-                  <h3 className="text-xl font-display font-bold tracking-tight text-brand-blue">{land.plot_number}</h3>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-1">
-                      <p className="text-[9px] uppercase font-bold text-slate-300 tracking-tighter">Size</p>
-                      <p className="text-xs font-bold text-brand-blue">{land.size}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-[9px] uppercase font-bold text-slate-300 tracking-tighter">Selling Price</p>
-                      <p className="text-xs font-bold text-brand-orange">KES {parseInt(land.total_cost).toLocaleString()}</p>
-                   </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                   <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      Deed {land.title_deed_status}
-                   </span>
-                   {user?.role === 'admin' && (
-                     <div className="flex gap-2">
-                       <button 
-                         onClick={() => {
-                           setSelectedPlot(land);
-                           setEditPlotForm({
-                             parent_property_id: land.parent_property_id ? String(land.parent_property_id) : '',
-                             plot_number: land.plot_number,
-                             location: land.location,
-                             size: land.size,
-                             acquisition_type: land.acquisition_type || 'purchase',
-                             total_cost: parseInt(land.total_cost),
-                             title_deed_status: land.title_deed_status,
-                             title_deed_url: land.title_deed_url || '',
-                             status: land.status
-                           });
-                           setEditPlotOpen(true);
-                         }}
-                         className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors text-brand-blue"
-                         aria-label="Edit plot"
-                       >
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <th className="text-left px-6 py-4">Plot</th>
+                  <th className="text-left px-6 py-4">Parent Property</th>
+                  <th className="text-right px-6 py-4">Size</th>
+                  <th className="text-right px-6 py-4">Selling Price</th>
+                  <th className="text-center px-6 py-4">Deed Status</th>
+                  <th className="text-center px-6 py-4">Status</th>
+                  <th className="text-right px-6 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPlots.map((land) => (
+                  <tr key={land.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-brand-blue/5 text-brand-blue flex items-center justify-center shrink-0">
+                          <LandPlot className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm text-slate-900">{land.plot_number}</p>
+                          <p className="text-[10px] font-semibold text-slate-400">{land.location}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-semibold text-slate-500">{land.parent_name || 'Individual Plot'}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-brand-blue text-right">{land.size}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-brand-orange text-right">KES {Number(land.total_cost || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500">
+                        <CheckCircle2 className={cn("w-3 h-3", land.title_deed_status === 'issued' ? "text-emerald-500" : "text-slate-300")} />
+                        {land.title_deed_status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={cn(
+                        "px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest",
+                        land.status === 'sold' ? "bg-rose-50 text-rose-500" :
+                        land.status === 'reserved' ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-500"
+                      )}>
+                        {land.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => {
+                            setSelectedPlot(land);
+                            setEditPlotForm({
+                              parent_property_id: land.parent_property_id ? String(land.parent_property_id) : '',
+                              plot_number: land.plot_number,
+                              location: land.location,
+                              size: land.size,
+                              acquisition_type: land.acquisition_type || 'purchase',
+                              total_cost: parseInt(land.total_cost),
+                              title_deed_status: land.title_deed_status,
+                              title_deed_url: land.title_deed_url || '',
+                              status: land.status
+                            });
+                            setEditPlotOpen(true);
+                          }}
+                          className="p-2 bg-slate-100 rounded-lg text-brand-blue hover:bg-slate-200"
+                          aria-label="Edit plot"
+                        >
                           <Edit3 className="w-4 h-4" />
-                       </button>
-                       <button
-                         onClick={() => handleDeletePlot(land)}
-                         className="p-3 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors text-rose-600"
-                         aria-label="Delete plot"
-                       >
-                         <Trash2 className="w-4 h-4" />
-                       </button>
-                     </div>
-                   )}
-                </div>
-              </motion.div>
-            ))}
+                        </button>
+                        <button
+                          onClick={() => handleDeletePlot(land)}
+                          className="p-2 bg-rose-50 rounded-lg text-rose-600 hover:bg-rose-100"
+                          aria-label="Delete plot"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )
       )}
